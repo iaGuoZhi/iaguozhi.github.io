@@ -13,5 +13,8 @@ jobs:
       - name: Install dependency
         run: pip install -r requirements.txt
 
-      - name: Build and Deploy
+      - name: Build
+        run: python3 build.py
+          
+      - name: Deploy
         run: python3 serve.py
