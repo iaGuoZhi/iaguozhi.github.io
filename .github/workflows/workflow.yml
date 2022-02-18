@@ -17,4 +17,4 @@ jobs:
         run: python3 build.py
           
       - name: Deploy
-        run: python3 serve.py
+        run: python3 serve.py &
