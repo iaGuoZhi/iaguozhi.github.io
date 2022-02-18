@@ -8,6 +8,13 @@
     rel="self" type="application/rss+xml" />
 
   
+  <item>
+    <title>Opinionated deployment tools &amp; Kubernetes</title>
+    <link>https://blog.thea.codes/building-a-paas-on-kubernetes</link>
+    <guid>https://blog.thea.codes/building-a-paas-on-kubernetes</guid>
+    <pubDate>Wed, 10 Feb 2016 12:00:00 Z</pubDate>
+  </item>
+  
 
 </channel>
 </rss>
