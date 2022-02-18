@@ -1,0 +1,18 @@
+name: iaguozhi.github.io
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Install dependency
+        run: pip install -r requirements.txt
+
+      - name: Build and Deploy
+        run: python3 serve.py
