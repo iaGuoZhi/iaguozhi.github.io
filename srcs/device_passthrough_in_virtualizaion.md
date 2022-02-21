@@ -33,13 +33,13 @@ HV需要对每个虚拟机模拟对应的PCI总线，记录当前给虚拟机模
 
 CONFIG_ADDRESS
 
-![](../../../docs/static/config_address.png)
+![](../static/config_address.png)
 
 x86平台上操作系统通过IO端口0xCF8-0xCFF访问PCI设备，前32位是CONFIG_ADDRESS,后32位是CONFIG_DATA，CONFIG_ADDRESS中包括BDF和register number，可以索引到PCI设备上的寄存器。
 
 ### 预定义头部
 
-![](../../../docs/static/configuration_space.png)
+![](../static/configuration_space.png)
 
 - Header Type 决定PCI设备类型，共有三种类型：普通PCI设备，PCI桥，CardBus桥，每种PCI设备的配置空间结构都不相同，上图展示的是普通PCI设备的配置空间。
 - Base Address Registers，基地址寄存器，它记录PCI寄存器或者设备RAM在I/O端口（或者物理地址空间）的地址。
