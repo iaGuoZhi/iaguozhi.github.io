@@ -3,10 +3,17 @@
 <channel>
   <title>blog.thea.codes</title>
   <description>Thea Flowers' Blog</description>
-  <link>https://blog.thea.codes</link>
-  <atom:link href="https://blog.thea.codes/feed.xml"
+  <link>https://iaguozhi.github.io</link>
+  <atom:link href="https://iaguozhi.github.io/feed.xml"
     rel="self" type="application/rss+xml" />
 
+  
+  <item>
+    <title>虚拟化中设备直通的实现</title>
+    <link>https://iaguozhi.github.io/device_passthrough_in_virtualizaion</link>
+    <guid>https://iaguozhi.github.io/device_passthrough_in_virtualizaion</guid>
+    <pubDate>Fri, 18 Feb 2022 12:00:00 Z</pubDate>
+  </item>
   
 
 </channel>

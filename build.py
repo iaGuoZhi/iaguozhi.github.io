@@ -95,7 +95,7 @@ def write_rss(posts: Sequence[frontmatter.Post]):
     posts = sorted(posts, key=lambda post: post['date'], reverse=True)
     path = pathlib.Path("./docs/feed.xml")
     template = jinja_env.get_template('rss.xml')
-    rendered = template.render(posts=posts, root="https://blog.thea.codes")
+    rendered = template.render(posts=posts, root="https://iaguozhi.github.io")
     path.write_text(rendered)
 
 
