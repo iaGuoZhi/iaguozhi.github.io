@@ -2,3 +2,5 @@ __pycache__
 env
 .nox
 .vscode
+.DS_Store
+*.swp

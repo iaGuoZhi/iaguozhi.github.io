@@ -15,6 +15,13 @@
     <pubDate>Sat, 26 Mar 2022 12:00:00 Z</pubDate>
   </item>
   
+  <item>
+    <title>Xv6 pgtbl lab</title>
+    <link>https://iaguozhi.github.io/xv6_pgtbl</link>
+    <guid>https://iaguozhi.github.io/xv6_pgtbl</guid>
+    <pubDate>Sat, 26 Mar 2022 12:00:00 Z</pubDate>
+  </item>
+  
 
 </channel>
 </rss>

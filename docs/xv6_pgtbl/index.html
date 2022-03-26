@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="Thea Flowers">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>Xv6 pgtbl lab - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="Xv6 pgtbl lab - Thea Flowers">
+<meta property="twitter:title" content="Xv6 pgtbl lab - Thea Flowers">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/xv6_pgtbl">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on March 26, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>Xv6 pgtbl lab</h1>
+  <content>
+    <h2 id="xv6">Xv6 页表介绍</h2>
+<p>页表是操作系统用来给每一个进程独立的地址空间和内存的机制。一般来说，页表以及其提供的虚拟内存机制为操作系统提供了以下功能:</p>
+<ol>
+<li>缓存磁盘数据(swap，page cache)。</li>
+<li>管理内存:
+   a. 简化连接: 允许每个进程的内存映像使用相同的基本格式(ELF). b. 简化加载: 允许操作系统以lazy的策略加载目标文件. c. 简化共享：静态库，动态库，进程fork时候的copy on write. d. 简化内存分配: 以indirection的方式让进程看到连续的地址空间。 </li>
+<li>内存保护: 通过页表的pte bit位进行访问控制，从而提供不同进程之间的隔离。</li>
+</ol>
+<p>在Xv6中，页表提供了管理内存与保护内存的功能。</p>
+<p>Xv6 跑在Sv39 RISC-V上，这意味着虚拟地址的64个bit只使用了0-38这39个bit。
+从下面这张图可以看出Xv6上的page table采用三级架构。
+每一级页表大小位512*8=4096 bytes(4k), 每个页表上有512个entry，每个entry里面有PPN和Flags，PPN(44个bits)作为物理地址用来查找下级页表或者最终翻译结果的物理地址,Flags(10个bits）用来设置页表的权限。 
+Xv6中用到的权限位包括PTE_V,PTE_R,PTE_W,PTE_X,PTE_U。</p>
+<p><img alt="" src="../static/xv6_page_table.png" /></p>
+<p>Xv6为一个进程提供了一个用户态页表，并且在内核实现了一个公共的内核页表（在这个lab中，我们需要为每个内核实现独立的页表。下图是Xv6 book提供的关于Xv6 虚拟内存到物理内存映射关系图，可以看到，内核态的虚拟地址处于高地址，而每个进程的用户态虚拟地址空间将被映射在低地址（从0开始）。对于QEMU提供的寄存器和内核代码段，数据段，Xv6采用了直接映射的方式。</p>
+<p><img alt="" src="../static/xv6_va_2_pa.png" /></p>
+<h2 id="_1">打印页表(简单）</h2>
+<p>pgtbl lab的第一个任务是在拿到内核页表基地址后，将整个页表打印为如下格式:</p>
+<pre><code>page table 0x0000000087f6e000
+..0: pte 0x0000000021fda801 pa 0x0000000087f6a000
+.. ..0: pte 0x0000000021fda401 pa 0x0000000087f69000
+.. .. ..0: pte 0x0000000021fdac1f pa 0x0000000087f6b000
+.. .. ..1: pte 0x0000000021fda00f pa 0x0000000087f68000
+.. .. ..2: pte 0x0000000021fd9c1f pa 0x0000000087f67000
+..255: pte 0x0000000021fdb401 pa 0x0000000087f6d000
+.. ..511: pte 0x0000000021fdb001 pa 0x0000000087f6c000
+.. .. ..510: pte 0x0000000021fdd807 pa 0x0000000087f76000
+.. .. ..511: pte 0x0000000020001c0b pa 0x0000000080007000
+</code></pre>
+<p>由于Xv6中已经有递归释放页表的函数进行参考，这个任务比较简单。我实现该任务的主要函数如下：</p>
+<p>因为Xv6 每个页表中有512个entry，因此这个函数会遍历512次，访问每个entry。只有entry中PTE_V为1的时候，才表明当前entry是有效的。由于最有一级页表的flag会设置PTE_R等权限位(不存在同时不能够读，写，执行的物理页)，因此可以通过这些flag判断当前是否是最后一级页表，如果不是，则递归打印当前页表项所指向的次级页表。</p>
+<pre><code>void
+static print_single_line(int level, int idx, pte_t pte, uint64 pa);
+
+// Recursively print page-table pages
+void
+static __vmprint(pagetable_t pagetable, int level)
+{
+  int i;
+
+  // there are 2^9 = 512 page-table pages.
+  for(i = 0; i &lt; 512; ++i){
+    pte_t pte = pagetable[i];
+    uint64 child = PTE2PA(pte);
+
+    if(pte &amp; PTE_V){
+      print_single_line(level, i, pte, child);
+      if((pte &amp; (PTE_R|PTE_W|PTE_X)) == 0){
+         // this PTE points to a lower-level page table. 
+         __vmprint((pagetable_t)child, level + 1);
+      }
+    }
+  }
+  return;
+}
+</code></pre>
+<h2 id="_2">每个进程一个内核页表(困难)</h2>
+<h2 id="copyincopyinstr">简化copyin/copyinstr(困难)</h2>
+<h2 id="_3">参考</h2>
+<p><a href="https://pdos.csail.mit.edu/6.828/2020/labs/pgtbl.html">https://pdos.csail.mit.edu/6.828/2020/labs/pgtbl.html</a>
+<a href="https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf">https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf</a>
+<a href="https://csapp.cs.cmu.edu/">https://csapp.cs.cmu.edu/</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <!--<a href="https://twitter.com/theavalkyrie" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> theavalkyrie</a>-->
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>
