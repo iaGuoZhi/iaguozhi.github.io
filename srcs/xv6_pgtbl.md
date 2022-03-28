@@ -22,7 +22,7 @@ Xv6中用到的权限位包括PTE\_V,PTE\_R,PTE\_W,PTE\_X,PTE\_U。
 
 ![](../static/xv6_page_table.png)
 
-Xv6为一个进程提供了一个用户态页表，并且在内核实现了一个公共的内核页表（在这个lab中，我们需要为每个内核实现独立的页表。下图是Xv6 book提供的关于Xv6 虚拟内存到物理内存映射关系图，可以看到，内核态的虚拟地址处于高地址，而每个进程的用户态虚拟地址空间将被映射在低地址（从0开始）。对于QEMU提供的寄存器和内核代码段，数据段，Xv6采用了直接映射的方式。
+Xv6为一个进程提供了一个用户态页表，并且在内核实现了一个公共的内核页表（在这个lab中，我们需要为每个内核实现独立的页表）。下图是Xv6 book提供的关于Xv6 虚拟内存到物理内存映射关系图，可以看到，内核态的虚拟地址处于高地址，而每个进程的用户态虚拟地址空间将被映射在低地址（从0开始）。对于QEMU提供的寄存器和内核代码段，数据段，Xv6采用了直接映射的方式。
 
 ![](../static/xv6_va_2_pa.png)
 
@@ -74,7 +74,7 @@ static __vmprint(pagetable_t pagetable, int level)
 
 ## 每个进程一个内核页表(困难)
 
-目前，Xv6在内核态只有一个kernel page table。并且kernel page table的映射方式是direct mapping（va=pa）。而Xv6每个进程都拥有一个独立的用户态页表，此时如果内核想要使用一个来自进程用户态的指针，内核需要以软件的方式走一次改进程的用户态页表，我们需要在现在和后面的任务中实现内核对于用户态指针的直接访问。
+目前，Xv6在内核态只有一个kernel page table。并且kernel page table的映射方式是direct mapping（va=pa）。而Xv6每个进程都拥有一个独立的用户态页表，此时如果内核想要使用一个来自进程用户态的指针，内核需要以软件的方式走一次该进程的用户态页表，我们需要在现在和后面的任务中实现内核对于用户态指针的直接访问。
 
 现在这个任务需要实现的是让每个进程都拥有一个独立的内核页表。
 
@@ -87,10 +87,12 @@ pagetable_t kpagetable;       // Kernel page table
 ```
 
 kpagetable将在allocproc函数中进行初始化。
+
 ```
 p->kpagetable = kvminit_perproc();
 ```
-kvminit_perproc() 将对进程的内核态页表进行初始化：包括映射uart寄存器，virtio disk寄存器，PLIC终端控制器，内核代码段，数据段，trampoline页。kvminit_perproc和kvminit的区别是没有映射CLINT中断寄存器，为什么没有映射在下个任务的讲解会提到。
+
+`kvminit_perproc()` 将对进程的内核态页表进行初始化：包括映射uart寄存器，virtio disk寄存器，PLIC终端控制器，内核代码段，数据段，trampoline页。`kvminit_perproc`和`kvminit`的区别是没有映射CLINT中断寄存器，为什么没有映射在下个任务的讲解会提到。
 
 ```
 /*
@@ -127,7 +129,7 @@ kvminit_perproc(void)
 }
 ```
 
-在allocproc创建进程的过程中还需要进行内核栈的分配与映射。注意这里不仅需要在进程私有的内核页表中建立va到pa的映射，还需要在进程共享的内核页表（在调度的时候使用到）中建立栈va到pa的映射。后面这一点是我在这个任务中花时间最多的一点。如果没有建立后者的映射，第一个用户程序刚启动的时候就会跑飞，很难通过gdb或者打印的方式找到原因。
+在allocproc创建进程的过程中还需要进行内核栈的分配与映射。注意这里不仅需要在进程私有的内核页表中建立va到pa的映射，还需要在进程共享的内核页表（在调度的时候使用到）中建立栈va到pa的映射。后面这一点是我在这个任务中花时间最多的一点。如果没有建立后者的映射，第一个用户程序刚启动的时候就会在调度器中跑飞，很难通过gdb或者打印的方式找到原因。
 
 ```
   // Allocate a page for the process's kernel stack.
@@ -164,10 +166,13 @@ kvminit_perproc(void)
 在回收进程页表的时候需要对这两种情况区别对待, 第一种只需要回收页表内存，不能够free页表指向的物理内存，第二种则需要free页表指向的物理页。
 
 可以使用`uvmunmap`函数中的`do_free`参数来满足我们的需求。对于内核栈内存，我们使用
+
 ```
   uvmunmap(kernel_pagetable, va, npages, 1);
 ```
-来回收页表，注意这里回收的是内核公共页表上对应的页表以及进程内核栈对应的物理内存。如此对于进程内核页表上的页表可以统一以不回收页表指向的物理页的方式对所有页表进行回收，简化代码逻辑。具体代码如下：
+
+来回收页表，注意这里回收的是内核公共页表上进程内核栈对应的页表以及相应的物理内存。如此对于进程内核页表上的页表可以统一以不回收页表指向的物理页的方式对所有页表进行回收，简化代码逻辑。具体代码如下：
+
 ```
 // Free kernel memory page table,
 // not free physical pages
@@ -196,7 +201,7 @@ kvmfree(pagetable_t pagetable)
 
 ### 更改copyin和copyinstr
 
-首先将原来的copyin和copyinstr中手动走页表的逻辑删除，改写成调用Xv6已经提供了的copyin_new和copyinstr_new。
+首先将原来的`copyin`和`copyinstr`中手动走页表的逻辑删除，改写成调用Xv6已经提供了的`copyin_new`和`copyinstr_new`。
 
 ### 更改fork
 
@@ -298,7 +303,8 @@ uvmalloc(pagetable_t u_pagetable, pagetable_t k_pagetable, uint64 oldsz, uint64 
   return newsz;
 }
 ```
-此时，当前进程的内核态页表中不仅有kvminit_perproc中指向内核物理地址的映射，也有和用户态页表指向用户态物理地址的映射。但是此时还不意味着我们现在的内核态页表就能够被写入satp寄存器来使用了，我之前没有仔细考虑这里，导致debug时间大幅增加。如果我们将此时的内核态页表写入satp寄存器继续执行会遇到什么呢？程序根本不能够访问到当前exec()函数中分配在栈上的变量。因为**新的内核态页表没有从旧的内核态页表中拷贝指向当前内核栈的物理页**。因此还需要一行代码:
+
+此时，当前进程的内核态页表中不仅有`kvminit_perproc`中指向内核物理地址的映射，也有和用户态页表指向用户态物理地址的映射。但是此时还不意味着我们现在的内核态页表就能够被写入satp寄存器来使用了(我之前没有仔细考虑这里，导致debug时间大幅增加)。如果我们将此时的内核态页表写入satp寄存器继续执行会遇到什么呢？程序根本不能够访问到当前exec()函数中分配在栈上的变量。因为**新的内核态页表没有从旧的内核态页表中拷贝指向当前内核栈的物理页的页表**。因此还需要一行代码:
 
 ```
   // Map origin kernel stack
@@ -323,7 +329,7 @@ uvmalloc(pagetable_t u_pagetable, pagetable_t k_pagetable, uint64 oldsz, uint64 
 
 用户程序可以通过sbrk来增加用户态地址空间。我们需要将sbrk中对于用户态页表的修改同步到内核态页表中。
 
-sbrk通过调用growproc来调整地址空间大小。更改后的growproc如下:
+sbrk通过调用`growproc`来调整地址空间大小。更改后的`growproc`如下:
 
 ```
 // Grow or shrink user memory by n bytes.
@@ -356,7 +362,8 @@ growproc(int n)
     return 0;
 ```
 
-这里会检查sbrk修改后的用户态地址空间大小，如果超过了限制，就直接返回。这是为了在这个任务最开始说的防止内核页表上用户态地址空间与内核态地址空间出现重叠的情况。
+这里会检查sbrk修改后的用户态地址空间大小，如果超过了限制，就直接返回。这是为了防止内核页表上用户态地址空间与内核态地址空间出现重叠的情况。
+`USER_VA_STOP`在我的实现中是`0x07000000L`, 它大于`CLINT`直接映射的虚拟地址`0x2000000L`。如此进程能够拥有更大的用户态地址空间，因为实际上`CLINT`在Xv6中只与处理timer中断有关，而处理timer中断时用到的页表是内核公共的页表，因此进程的内核页表上不需要映射`CLINT`寄存器，于是`USER_VA_STOP`即使大于`CLINT`，在进程内核页表上用户态地址空间与内核地址空间也不会发生冲突。
 
 ## 总结
 
