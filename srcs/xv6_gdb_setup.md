@@ -1,10 +1,10 @@
 ---
-title: xv6配置gdb
+title: Xv6配置gdb
 date: 2022-03-26
 legacy_url: yes
 ---
 
-基于ubuntu20.04, xv6版本: mit 2020
+基于ubuntu20.04, Xv6版本: mit 2020
 
 ## 安装riscv工具链
 
