@@ -1,6 +1,6 @@
 ---
 title: Xv6 traps lab
-date: 2022-04-01
+date: 2022-04-13
 legacy_url: yes
 ---
 

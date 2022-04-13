@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>Xv6 lazy lab - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="Xv6 lazy lab - iaGuoZhi">
+<meta property="twitter:title" content="Xv6 lazy lab - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/xv6_lazy">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on April 01, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>Xv6 lazy lab</h1>
+  <content>
+    <h2 id="lazy">什么是Lazy</h2>
+<p>Lazy是操作系统在管理内存时的重要技巧之一。应用程序在分配内存的时候，操作系统并不会立刻分配，而是当进程在使用这块内存时因为没有页表而产生了缺页异常下陷到kenrel中才进行物理内存的分配与页表映射的建立。其背后的原理是应用程序的代码分配这块内存的时间并不是真正需要使用的时间，因此可以使用lazy的策略来延迟物理内存的分配，从而实现节约物理内存的目的。当然lazy并不是one size fits all，因为lazy在使用时需要下陷，影响了性能，在一些场景中（比如RDMA，JVM）都会提前分配好物理内存，避免在应用运行时出现缺页。</p>
+<h2 id="lazy-allocation">Lazy allocation</h2>
+<h3 id="sbrk">处理sbrk</h3>
+<p>lazy的第一步就是在应用分配内存的时候不分配内存:</p>
+<pre><code>uint64
+sys_sbrk(void)
+{
+  int addr;
+  int n;
+
+  if(argint(0, &amp;n) &lt; 0)
+    return -1;
+  addr = myproc()-&gt;sz;
+  if(growproc(n) &lt; 0)
+    return -1;
+  return addr;
+}
+
+int
+growproc(int n)
+{
+  struct proc *p = myproc();
+  uint64 sz;
+
+  sz = p-&gt;sz;
+  if(n &gt; 0){
+    if(p-&gt;sz + n &gt; TRAPFRAME)
+      return 0;
+    // do nothing because of lazy alloc
+  } else if(n &lt; 0){
+    sz = uvmdealloc(p-&gt;pagetable, sz, sz + n);
+  }
+  p-&gt;sz = p-&gt;sz + n;
+  return 0;
+}
+</code></pre>
+<p>在内核中我们只需在应用程序通过sbrk扩大地址空间时进行lazy映射。因为用户程序只能够通过sbrk向kernel申请内存空间，其他申请用户态内存的方式比如malloc，会由用户态内存分配器进行处理，用户态内存分配器的空闲内存不够时会调用sbrk扩大内存空间。</p>
+<h3 id="_1">处理缺页</h3>
+<p>发生下陷后，我们可以通过r_scause()检查scause寄存器，如果它的值是13或者15说明是缺页异常。</p>
+<pre><code>else if(r_scause() == 13 || r_scause() == 15){
+  // handle page fault trap
+  if(handle_page_fault(p-&gt;pagetable, PGROUNDDOWN(r_stval())) == -1)
+    p-&gt;killed = 1;
+}
+</code></pre>
+<p>下面是page fault handler的代码，需要注意的是在处理page fault的过程中，我们要鉴别这个va是否合法，在Linux中可以通过vma来判断，Xv6中现在的设计比较简单，默认是只要小于sbrk申请出的sz的地址都是合法地址，除了要把栈下面的guard page剔除掉。</p>
+<p>除了上面这一点需要特殊考虑外，其他的操作都和uvmalloc类似。</p>
+<pre><code>static int
+valid_fault_va(struct proc *p, uint64 va) {
+  uint64 sp = PGROUNDUP(p-&gt;trapframe-&gt;sp);
+  return (va &lt; p-&gt;sz) &amp;&amp;
+    // not in stack guard page
+    !(va &gt;= sp - 2 * PGSIZE &amp;&amp; va &lt; sp - PGSIZE);
+}
+
+uint64
+handle_page_fault(pagetable_t pagetable, uint64 va) {
+  uint64 pa0;
+  char *mem;
+
+  va = PGROUNDDOWN(va);
+  if(!valid_fault_va(myproc(), va))
+    return -1;
+
+  mem = kalloc();
+  if(mem == 0)
+  {
+    return -1;
+  }
+  memset(mem, 0, PGSIZE);
+  if(mappages(pagetable, va, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+    kfree(mem);
+    return -1;
+  }
+  pa0 = (uint64)mem;
+  return pa0;
+}
+
+</code></pre>
+<h2 id="fork">处理fork</h2>
+<p>fork在调用uvmcopy将内存拷贝到子进程的时候，之前会检查物理页是否存在，如果不存在则不合法，实现了lazy之后，允许此时物理页不存在。</p>
+<h2 id="_2">处理内核直接使用没有映射的虚拟地址</h2>
+<p>内核在拿到用户态va的时候会进行访问，比如在copyin和copyout中会用用户态va走用户态页表拿到pa然后读数据，如果这时候没有映射物理页，则会直接返回，这样肯定是不对的，因此在这个时候我们需要检查出这种情况，并分配页表。</p>
+<p>通过分析代码，发现copyin,copyinstr和copyout都会调用walkaddr拿到物理地址，因此我们只需要更改walkaddr让它在没有找到合法物理页的情况下处理缺页就行。</p>
+<pre><code>uint64
+walkaddr(pagetable_t pagetable, uint64 va)
+{
+  pte_t *pte;
+  uint64 pa;
+
+  if(va &gt;= MAXVA)
+    return 0;
+
+  pte = walk(pagetable, va, 0);
+  if(pte == 0 || (*pte &amp; PTE_V) == 0)
+  {
+    pa = handle_page_fault(pagetable, va);
+    if(pa == -1)
+      return 0;
+    pte = walk(pagetable, va, 0);
+    if(pte == 0 || (*pte &amp; PTE_V) == 0)
+      return 0;
+  }
+  if((*pte &amp; PTE_U) == 0)
+    return 0;
+  pa = PTE2PA(*pte);
+  return pa;
+}
+</code></pre>
+<p>除了上面这个操作之外，依然有可能在内核态触发缺页异常（原因未知 TBD)。 因此需要在kerneltrap()中也处理缺页异常。</p>
+<pre><code>if(r_scause() == 13 || r_scause() == 15) {
+  if(handle_page_fault(myproc()-&gt;pagetable, PGROUNDDOWN(r_stval())) == -1)
+    myproc()-&gt;killed = 1;
+
+  if(myproc()-&gt;killed)
+    exit(-1);
+}
+</code></pre>
+<h2 id="_3">现有的不足</h2>
+<ol>
+<li>没有vma，不能够在软件层面记录哪些页面有映射，哪些没有。</li>
+</ol>
+<h2 id="_4">总结</h2>
+<p><img alt="" src="../static/lazy_time_spend.png" /></p>
+<h2 id="_5">参考</h2>
+<p><a href="https://pdos.csail.mit.edu/6.828/2020/labs/lazy.html">https://pdos.csail.mit.edu/6.828/2020/labs/lazy.html</a></p>
+<p><a href="https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf">https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <!--<a href="https://twitter.com/theavalkyrie" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> theavalkyrie</a>-->
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>

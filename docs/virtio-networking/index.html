@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>a journey to the vhost-users realm - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="a journey to the vhost-users realm - iaGuoZhi">
+<meta property="twitter:title" content="a journey to the vhost-users realm - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/virtio-networking">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on April 06, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>a journey to the vhost-users realm</h1>
+  <content>
+    <h2 id="_1">背景</h2>
+<p>通过vhost-net机制将网络处理从qemu中剥离出来，放在内核态里面，能够提升网络处理的性能。
+但是其实通过DPDK可以将dataplane实现在用户态并取得更好的性能。</p>
+<h2 id="dpdk">DPDK 及其好处</h2>
+<p>DPDK 是一个用户态的告诉包处理库，许多网络虚拟化应用中会使用到它们从而做到bypass内核的臃肿网络协议栈。</p>
+<p>DPDK提供了一系列的好处: </p>
+<ul>
+<li>进程亲和性，榜核</li>
+<li>支持大页</li>
+<li>无锁的ring buffers</li>
+<li>轮训替代中断</li>
+<li>支持VFIO</li>
+</ul>
+<p>除了上面的这些特性，DPDK还提供了两个与VIRTIO相关的特性:</p>
+<ul>
+<li>Vhost-user 库</li>
+<li>Virtio-PMD 库</li>
+</ul>
+<h2 id="dpdkovs">DPDK和OVS： 一个完美的结合</h2>
+<p>DPDK带来性能提升的一个很好的例子就是和OVS（Open vSwitch)的结合. OVS-DPDK能够相对OVS带来上十倍的性能提升。</p>
+<h3 id="vhost-user">Vhost-user库</h3>
+<p>vhost协议是将virtio datapath从QEMU中分离出来，它包括</p>
+<ul>
+<li>A set of messages that allow the primary to send the virtqueue's memory layout and configuration to the handler.</li>
+<li>A pair of eventfd-type file descriptors that allow the guest to bypass the primary and directly send and receive notifications to/from the handler.</li>
+</ul>
+<p>vhost-net是vhost将virtio datapath offload到内核中，vhost-user是将virtio datapath offload的DPDK应用中。</p>
+<p>vhost-net和vhost-user最大的不同是communication channel. vhost-net通过ioctl通信，而vhost-user通过socket通信。</p>
+<p>vhost-user库支持的control plane操作：</p>
+<ul>
+<li>feature negotiation</li>
+<li>memory region configuration</li>
+<li>vring configuration</li>
+<li>kick and call file descriptors sending</li>
+</ul>
+<p>通过上述协商后，DPDK应用能够和guest vm共享内存页并且guest可以直接想dpdk发起notification，guest不会产生下陷。</p>
+<p>QEMU virtio device model让这些统一在一起，它支持PCI设备的发现，它将ioeventfd映射在设备mmio的内存空间，irqfd映射在GSI。这可以使得虚拟机可以意识不到所有的通知和中断都被DPDK接收了。</p>
+<p><img alt="" src="../static/virtio-dpdk.png" /></p>
+<h2 id="_2">虚拟机中的用户态网络</h2>
+<p>为了在虚拟机的用户态直接使用网络，需要三个组件:</p>
+<ul>
+<li>VFIO</li>
+<li>Virtio-pmd driver</li>
+<li>IOMMU driver</li>
+</ul>
+<h3 id="vfio">VFIO</h3>
+<p>VFIO 提供以下支持:</p>
+<ul>
+<li>将设备的配置空间映射在用户内存中</li>
+<li>基于IOMMU group进行DMA和中断重映射</li>
+<li>基于signal实现Eventfd和irqfd</li>
+</ul>
+<p>VFIO的出现让驱动的编写更加简单</p>
+<h3 id="virtio-pmd">Virtio-pmd</h3>
+<p>DPDK提供了一个驱动的抽象，叫做PMD（Poll Mode Driver）。位于设备驱动和用户程序之间。</p>
+<p>virtio-pmd使用PMD API，提供给DPDK应用程序一个快速且无锁的virtio设备访问。</p>
+<p>virtio-pmd支持:</p>
+<ul>
+<li>Flexible mergeable buffers per packet when receiving and scattered buffer per packet when transmitting.</li>
+<li>Multicast and promiscuous mode</li>
+<li>MAC/vlan filtering</li>
+</ul>
+<h3 id="iommu">IOMMU介绍</h3>
+<p>IOMMU提供了以下的好处:</p>
+<ul>
+<li>提供连续的地址空间</li>
+<li>一些设备自身访问不了整个内存空间</li>
+<li>保护</li>
+</ul>
+<p>坏处:</p>
+<ul>
+<li>性能下降</li>
+<li>减少了可用的物理内存</li>
+</ul>
+<p>IOMMU提供了PCIe Address Translation Service接口，设备可以在设备端缓存IOMMU翻译结果</p>
+<h3 id="viommu-guestiommu">vIOMMU, guest使用的IOMMU</h3>
+<p>QEMU的vIOMMU提供了以下特性:</p>
+<ul>
+<li>将guest的IOVA翻译成GPA</li>
+<li>设备隔离</li>
+<li>实现了I/O TBL API, qemu可以访问到这些映射</li>
+</ul>
+<h3 id="viommu-dpdk">vIOMMU 和 DPDK 集成</h3>
+<p>通过VFIO</p>
+<h3 id="viommu-vhost-user">vIOMMU 和 vhost-user 集成</h3>
+<p>当vhost-user库尝试直接访问vhost-user和vm的shared memory时，它需要将所有的地址翻译成它自己的内存. 它通过访问Device TLB API来访问QEMU的vIOMMU。Vhost-user库通过使用PCIe的ATS标准来请求page translation。</p>
+<p>在这里有三种地址翻译</p>
+<ul>
+<li>QEMU vIOMMU将IOVA翻译成GPA</li>
+<li>Qemu的内存管理将GPA翻译成HVA</li>
+<li>Vhost-user library将HVA翻译成它自己的HVA。(mmap)</li>
+</ul>
+<p>尽管这么多翻译对性能会产生影响，但是可以通过DPDK的static,hugepage allocation 来避免。</p>
+<p><img alt="" src="../static/vhost-user-iommu.png" /></p>
+<ul>
+<li>当一个IOVA指向了virtqueue，它会被缓存在vIOMMU的TLB中</li>
+<li>QEMU能够将gpa翻译成hva</li>
+<li>当vhost-user库尝试访问一个没有页表映射的IOVA，它会通过套接字IOTLB miss的消</li>
+<li>IOTLB API收到消息后，将翻译结果通过套接字返回给vhost-user</li>
+<li>最后, vhost-user库完成最后的翻译，它能够将qemu 的hva翻译成自己的hva</li>
+</ul>
+<h2 id="putting-everything-together">Putting everything together</h2>
+<p><img alt="" src="../static/putting_together_vhost_dpdk.jpeg" /></p>
+<h2 id="_3">流程示意图</h2>
+<p><img alt="" src="../static/vhost_dpdk_example_flow.jpeg" /></p>
+<h3 id="_4">控制面</h3>
+<p>控制面初始化的步骤</p>
+<ul>
+<li>DPDK创建一个套接字用于和qemu进行协商</li>
+<li>qemu和dpdk建立socket连接，并且创建一个新的socket用于和vhost-user发送iotlb同步的信息</li>
+<li>guest boot，然后创建iommu group以访问vfio</li>
+<li>dpdk应用启动：</li>
+<li>初始化PCI-vfio设备</li>
+<li>创建virtqueue</li>
+<li>使用vfio</li>
+<li>virtio feature negotiation</li>
+<li>dpdk应用创建一大块连续的内存用于网络buffer</li>
+</ul>
+<h3 id="_5">数据面</h3>
+<ol>
+<li>DPDK应用程序操作virtio-pmd来发包</li>
+<li>vhost-user polling到了virtquque的变化，然后处理</li>
+<li>对于每个descriptor，vhost-user pmd映射一个buffer，有些比较少见的情况会出现，buffer的内存对应的页表没有被缓存在IOTLB里面，这时候一个请求就会发给QEMU。但是由于DPDK使用大页，这种情况很少。</li>
+<li>vhost-user PMD 拷贝包对应的bufffer到mbufs</li>
+<li>更新已用描述符，被guest中的dpdk应用poll到</li>
+<li>mbufs被host中的dpdk应用处理</li>
+</ol>
+<h2 id="_6">总结</h2>
+<p>DPDK和Open vSwitch结合起来能够提供虚拟化需要的灵活性的高性能。</p>
+<h2 id="_7">参考</h2>
+<p><a href="https://www.redhat.com/en/blog/journey-vhost-users-realm">https://www.redhat.com/en/blog/journey-vhost-users-realm</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <!--<a href="https://twitter.com/theavalkyrie" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> theavalkyrie</a>-->
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>
