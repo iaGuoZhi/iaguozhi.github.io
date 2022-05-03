@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>Send patch to QEMU - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="Send patch to QEMU - iaGuoZhi">
+<meta property="twitter:title" content="Send patch to QEMU - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/qemu_patch">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on May 03, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>Send patch to QEMU</h1>
+  <content>
+    <p>最近给QEMU提交了几个小patch，整理下步骤，以便之后查阅：</p>
+<h2 id="1-issues">1. 寻找issues</h2>
+<p>在<a href="https://gitlab.com/qemu-project/qemu/-/issues">QEMU</a>的issues页面可以看到等待解决的issues。 </p>
+<p>从中找到自己能够解决的issues，比如我发现了一个<a href="https://gitlab.com/qemu-project/qemu/-/issues/978">issue</a>很简单，但是还没有人解决。</p>
+<h2 id="2">2. 写代码</h2>
+<p>接下来，写代码来解决这个issue，以上面我发现的issue为例子: </p>
+<p>之所以会出现输入-vga help, QEMU abort是因为代码访问了一个空指针，找到访问空指针的位置，发现是因为<code>def</code>指针是null，但是却被取引用。因此我加了一点代码，在对def取引用之前先确定def不为空。更改之后的代码如下:</p>
+<pre><code>if (vga_interface_available(t) &amp;&amp; ti-&gt;opt_name) {
+    printf(&quot;%-20s %s%s\n&quot;, ti-&gt;opt_name, ti-&gt;name ?: &quot;&quot;,
+            (def &amp;&amp; g_str_equal(ti-&gt;opt_name, def)) ?
+            &quot; (default)&quot; : &quot;&quot;);
+}
+</code></pre>
+<h2 id="3-git-commit">3. Git commit</h2>
+<p>对代码进行commit： commit规范是第一行总结修改，空一行，下面再具体描述修改。另外QEMU社区不希望commit行数过多，在vim里面可以通过在普通模式下选中commit信息，按g和w键来将commit信息格式化，从而不会出现有一些行字数过少，导致行数变多的情况。</p>
+<p>在上面这个例子中我的commit信息就是</p>
+<pre><code>vga: avoid crash if no default vga card
+
+QEMU in some arch will crash when executing -vga help command, because
+there is no default vga model.  Add check to this case and avoid crash.
+</code></pre>
+<h2 id="4-patch">4. 生成patch</h2>
+<p>通过<code>git format-patch -s -v 1 -1</code>来生成patch。其中-s是添加committer的签名，-v 1是将这个patch命名为版本1（patch将会以v1开头)，-1是指使用最近一次commit的代码来生成patch。</p>
+<h2 id="5-patch">5. 修改patch</h2>
+<p>在format-patch生成后，还能够直接用vim来修改patch。比如由于我这个patch解决的是一个issue，那么我可以在patch中commit信息下方加入</p>
+<pre><code>Resolves: https://gitlab.com/qemu-project/qemu/-/issues/978
+</code></pre>
+<p>这可以使得当patch被接收后，对应的issue自动关闭，同时也能够让你的reviewer更加清楚你为什么要提这个patch。</p>
+<h2 id="6-patch">6. 检查patch</h2>
+<p>大型项目一般都会有脚本来检查patch是否规范，QEMU中可以通过<code>./scripts/checkpatch.pl</code>来检查patch。在发送邮件之前一定要检查一遍，以免给reviewer带来不必要的工作。</p>
+<p>到这一步后，我的patch长下面这个样子:</p>
+<pre><code>From b0daca5b03c54596758a1b36e91c85a08a747e4d Mon Sep 17 00:00:00 2001
+From: Guo Zhi &lt;qtxuning1999@sjtu.edu.cn&gt;
+Date: Tue, 3 May 2022 17:08:43 +0800
+Subject: [PATCH v2] vga: avoid crash if no default vga card
+
+QEMU in some arch will crash when executing -vga help command, because
+there is no default vga model.  Add check to this case and avoid crash.
+
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/978
+
+Signed-off-by: Guo Zhi &lt;qtxuning1999@sjtu.edu.cn&gt;
+---
+ softmmu/vl.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/softmmu/vl.c b/softmmu/vl.c
+index c2919579fd..a49e29312b 100644
+--- a/softmmu/vl.c
++++ b/softmmu/vl.c
+@@ -977,7 +977,8 @@ static void select_vgahw(const MachineClass *machine_class, const char *p)
+
+             if (vga_interface_available(t) &amp;&amp; ti-&gt;opt_name) {
+                 printf(&quot;%-20s %s%s\n&quot;, ti-&gt;opt_name, ti-&gt;name ?: &quot;&quot;,
+-                       g_str_equal(ti-&gt;opt_name, def) ? &quot; (default)&quot; : &quot;&quot;);
++                        (def &amp;&amp; g_str_equal(ti-&gt;opt_name, def)) ?
++                        &quot; (default)&quot; : &quot;&quot;);
+             }
+         }
+         exit(0);
+-- 
+2.35.1
+</code></pre>
+<h2 id="7">7. 发送邮件</h2>
+<p>通过git send-email发送邮件。</p>
+<p>邮件发送的对象可以通过<code>./scripts/get_maintainer.pl</code>获得，为了方便，推荐使用以下方式直接发送邮件。</p>
+<p>在~/.gitconfig中加入以下代码:</p>
+<pre><code>[sendemail.qemu]
+    tocmd =&quot;`pwd`/scripts/get_maintainer.pl --nogit --nogit-fallback --norolestats --nol&quot;
+    cccmd =&quot;`pwd`/scripts/get_maintainer.pl --nogit --nogit-fallback --norolestats --nom&quot;
+</code></pre>
+<p>之后发送一个patch的命令就是</p>
+<pre><code>git send-email --identity=qemu v1-0001-vga-crash-if-no-default-vga-card.patch
+</code></pre>
+<h2 id="8">8. 参与讨论</h2>
+<p>patch 发送之后，自己的邮箱也会收到邮件，可以用来确认patch是否发送成功。</p>
+<p>patch的审核周期可能是几天到一周不定，耐心等待，及时回复，如果reviewer觉得需要更改，重新发送一个修改后的v2版本的patch。</p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>

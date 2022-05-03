@@ -9,6 +9,13 @@
 
   
   <item>
+    <title>Send patch to QEMU</title>
+    <link>https://iaguozhi.github.io/qemu_patch</link>
+    <guid>https://iaguozhi.github.io/qemu_patch</guid>
+    <pubDate>Tue, 03 May 2022 12:00:00 Z</pubDate>
+  </item>
+  
+  <item>
     <title>Xv6 lazy lab</title>
     <link>https://iaguozhi.github.io/xv6_lazy</link>
     <guid>https://iaguozhi.github.io/xv6_lazy</guid>
