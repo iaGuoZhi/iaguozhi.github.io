@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>How to use sva feature in 2022 - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="How to use sva feature in 2022 - iaGuoZhi">
+<meta property="twitter:title" content="How to use sva feature in 2022 - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/how-to-use-sva-in-2022">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on May 06, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>How to use sva feature in 2022</h1>
+  <content>
+    <p>SVA特性可以做到设备和进程使用同一套页表。有一篇博客他已经介绍过如何使用Linux SVA特性，但是考虑到他是2021年的，并且有很多细节上的点没有涉及， 并且一些关键信息已经过期，我在结合自身经验的基础上写一个如何使用sva特性2022版。</p>
+<h2 id="1">1. 机器</h2>
+<p>华为 KunPeng920服务器</p>
+<h2 id="2-license">2. License</h2>
+<p>需要在鲲鹏服务器上开启鲲鹏KAE加速引擎，因此需要在iBMC里面安全对应的许可证，这个许可证可能在服务器买的时候已经配套购买，也可能没有，需要联系经销商，但是经销商对于这种License都不是很了解，最直接的途径是联系华为的开发者，看能不能通过与华为合作的途径拿到License。</p>
+<p>安装了License后，压缩解压缩设备应该是可见的:</p>
+<pre><code>root@ubuntu:~# lspci -s 75:00.0
+75:00.0 Processing accelerators: Device 19e5:a250 (rev 21)
+</code></pre>
+<h2 id="3">3. 内核配置与编译</h2>
+<p>目前实现了sva特性的Linux 内核在: <a href="https://github.com/Linaro/linux-kernel-uadk/tree/uacce-devel-5.16">https://github.com/Linaro/linux-kernel-uadk/tree/uacce-devel-5.16</a></p>
+<p>下载之后进行如下配置： </p>
+<pre><code>make defconfig
+
+make menuconfig
+
+choose follow in menuconfig: 
+
+CONFIG_ARM_SMMU_V3=y
+CONFIG_PCI_PASID=y
+CONFIG_IOMMU_SVA=y
+CONFIG_CRYPTO_DEV_HISI_QM=y
+CONFIG_CRYPTO_DEV_HISI_ZIP=y
+CONFIG_UACCE=y
+
+</code></pre>
+<p>之后再编译内核。</p>
+<h2 id="4-uadk">4. uadk 用户态框架安装</h2>
+<p>从 <a href="https://github.com/Linaro/uadk/tree/master">https://github.com/Linaro/uadk/tree/master</a> 下载uadk。
+uadk 编译安装命令:</p>
+<pre><code>./autogen.sh
+./conf.sh
+make
+</code></pre>
+<h2 id="5-uadk">5. 运行uadk测试程序</h2>
+<p>在uadk编译好之后, 在.libs目录下会出现用户态库:</p>
+<pre><code>.libs git:(master) ✗ ls *.so
+libhisi_hpre.so  libhisi_sec.so  libhisi_zip.so  libwd_comp.so  libwd_crypto.so  libwd.so
+</code></pre>
+<p>通过 <code>export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/path-to-libs</code>将生成的库加入动态库搜索路径中。</p>
+<p>在test目录下有一下测试程序：</p>
+<pre><code> ➜  uadk git:(master) ✗ ls test
+hisi_hpre_test  hisi_zip_testo hisi_sec_test
+</code></pre>
+<p>选择一个比如hisi_set_test进行测试，测试命令如下:</p>
+<pre><code>./test_hisi_sec --perf --async --pktlen 1024 --block 4096 --blknum 100000 --times 200 --multi 1 --ctxnum 1
+</code></pre>
+<p>参数可以调节，来控制产生io page fault的速度。</p>
+<h2 id="6-sva">6. 验证sva</h2>
+<p>可以在kernel里面<code>drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c</code>中的<code>arm_smmu_handle_evt</code>中添加打印，来确认io page fault是否被触发已经被处理。</p>
+<h2 id="_1">参考</h2>
+<p><a href="https://wangzhou.github.io/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/">https://wangzhou.github.io/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/</a></p>
+<p><a href="https://github.com/Linaro/linux-kernel-uadk/issues/5">https://github.com/Linaro/linux-kernel-uadk/issues/5</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>
