@@ -77,6 +77,7 @@ e1000_transmit(struct mbuf *m)
 ### 收包
 
 考虑到有多个网络包同时到来，需要在一次收包过程中处理所有到来的网络包。
+
 ```
 static void
 e1000_recv(void)

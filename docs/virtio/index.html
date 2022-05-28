@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>VIRTIO 1.1 新特性之F_IN_ORDER - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="VIRTIO 1.1 新特性之F_IN_ORDER - iaGuoZhi">
+<meta property="twitter:title" content="VIRTIO 1.1 新特性之F_IN_ORDER - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/virtio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on April 14, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>VIRTIO 1.1 新特性之F_IN_ORDER</h1>
+  <content>
+    <h2 id="virtio-11">VIRTIO 1.1 新特性</h2>
+<p>VIRTIO 1.0和之前的版本是传统中一个描述符表，一个可用描述符ring，一个已用描述符ring的经典设计。在VIRTIO 1.1中增加了一系列为了提高性能的tricks。主要有</p>
+<ul>
+<li>Packed virtqueues(将descriptors table, avail ring, used ring合并到一起，以减少在虚拟机与宿主机切换时对cache的影响，并减少在virtio offload到硬件上时需要的pci transaction次数）。</li>
+<li>In order completion(如果F_IN_ORDER被协商好的话，设备需要按照avail ring中buffer的顺序处理描述符，能够方便batch buffers和notifications来达到减少DMA次数、减少虚拟机下陷次数等效果) 。</li>
+<li>Hardware SRIOV(支持硬件里面的VF作为virtio后端)。</li>
+<li>vDPA(将Vhost的datapath实现在硬件中)。</li>
+</ul>
+<h2 id="virtio_f_in_order">什么是VIRTIO_F_IN_ORDER</h2>
+<p>本文将关注F_IN_ORDER这个新特性。</p>
+<p>首先F_IN_ORDER是通过VIRTIO的feature寄存器来协商的，需要driver和device同时配合。</p>
+<p>在F_IN_ORDER协商好的情况下，driver按照顺序将使用描述符，可以将多个buffer batch到一起。比如:</p>
+<p>开始时avail_idx为0，在driver将描述符写为如下后,会将描述符的avail_idx更新为2, 因为使用了两个描述符链(unsure?)。</p>
+<table class="table">
+<thead>
+<tr>
+<th>Idx</th>
+<th>Buffer</th>
+<th>Len</th>
+<th>Flags</th>
+<th>Next</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>0x8000</td>
+<td>2000</td>
+<td>W</td>
+<td>0</td>
+</tr>
+<tr>
+<td>1</td>
+<td>0x2000</td>
+<td>2000</td>
+<td>R</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>0x12000</td>
+<td>2000</td>
+<td>R</td>
+<td>0</td>
+</tr>
+<tr>
+<td>3</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>根据上面这个描述符表可以看出driver将两个buffer batch到了一起，对应了两条描述符链。driver在写好描述符之后，发中断通知device。</p>
+<p>device在按照顺序处理了这个batch后，如果最开始的used_idx是0，它会将used_idx更新为2，因为处理了两条描述符链。</p>
+<p>也就是说如果最开始的avail_idx为a，最开始的used_idx为b，每次batch的描述符数目是sz，那么n次来回后，avail_idx的位置是(a+n*sz)%q_size, used_idx的位置是(b+n*sz)%q_size。</p>
+<p>并且由于现在是按照顺序进行batch，对于used ring来说只需要将idx指向这次batch的最后一个描述符即可。因为driver能够通过它知道这次batch的描述符数量，然后依次处理，反之亦然。</p>
+<p>目前F_IN_ORDER只实现在DPDK中，没有实现在虚拟机监控器或者操作系统中。</p>
+<h2 id="virtio_f_in_orderdpdk">VIRTIO_F_IN_ORDER在DPDK中的实现</h2>
+<h3 id="virtio-netdriver">virtio-net(driver侧)</h3>
+<h4 id="virtqueue">virtqueue</h4>
+<p>在inorder的情况下，virtqueue中的desc_ring, used_ring, avail_ring和vq_descx是一一对应的，就是说它们可以使用同一个索引。</p>
+<pre><code>struct virtqueue {
+    struct virtio_hw  *hw; /**&lt; virtio_hw structure pointer. */
+    union {
+        struct {
+            /**&lt; vring keeping desc, used and avail */
+            struct vring ring;
+        } vq_split;
+
+        struct {
+            /**&lt; vring keeping descs and events */
+            struct vring_packed ring;
+            bool used_wrap_counter;
+            uint16_t cached_flags; /**&lt; cached flags for descs */
+            uint16_t event_flags_shadow;
+        } vq_packed;
+    };
+
+    uint16_t vq_used_cons_idx; /**&lt; last consumed descriptor */
+    uint16_t vq_nentries;  /**&lt; vring desc numbers */
+    uint16_t vq_free_cnt;  /**&lt; num of desc available */
+    uint16_t vq_avail_idx; /**&lt; sync until needed */
+    uint16_t vq_free_thresh; /**&lt; free threshold */
+
+    /**
+     * Head of the free chain in the descriptor table. If
+     * there are no free descriptors, this will be set to
+     * VQ_RING_DESC_CHAIN_END.
+     */
+    uint16_t  vq_desc_head_idx;
+    uint16_t  vq_desc_tail_idx;
+    uint16_t  vq_queue_index;   /**&lt; PCI queue index */
+
+    void *vq_ring_virt_mem;  /**&lt; linear address of vring*/
+    unsigned int vq_ring_size;
+    uint16_t mbuf_addr_offset;
+
+    union {
+        struct virtnet_rx rxq;
+        struct virtnet_tx txq;
+        struct virtnet_ctl cq;
+    };
+
+    rte_iova_t vq_ring_mem; /**&lt; physical address of vring,
+                             * or virtual address for virtio_user. */
+
+    uint16_t  *notify_addr;
+    struct rte_mbuf **sw_ring;  /**&lt; RX software ring. */
+    struct vq_desc_extra vq_descx[0];
+};
+
+</code></pre>
+<h4 id="rx">rx</h4>
+<p>在rx函数中与F_IN_ORDER相关的主要是<code>virtqueue_dequeue_rx_inorder</code>这个函数。它在驱动收包的时候被调用，作用是将buf在virtqueue中取出来将信息写在rx_pkts中。</p>
+<pre><code>static uint16_t
+virtqueue_dequeue_rx_inorder(struct virtqueue *vq,
+            struct rte_mbuf **rx_pkts,
+            uint32_t *len,
+            uint16_t num)
+{
+
+    for (i = 0; i &lt; num; i++) {
+        used_idx = vq-&gt;vq_used_cons_idx &amp; (vq-&gt;vq_nentries - 1);
+        uep = &amp;vq-&gt;vq_split.ring.used-&gt;ring[used_idx];
+        len[i] = uep-&gt;len;
+    // vq_descx是virtqueue中driver侧记录extra data的数据结构, 这里直接用used_idx
+    // 索引，说明used_ring和vq_descx的索引是一致的。
+        cookie = (struct rte_mbuf *)vq-&gt;vq_descx[used_idx].cookie;
+
+        rx_pkts[i]  = cookie;
+        vq-&gt;vq_used_cons_idx++;
+        vq-&gt;vq_descx[used_idx].cookie = NULL;
+    }
+
+    vq_ring_free_inorder(vq, used_idx, i);
+    return i;
+}
+
+//virtqueue_dequeue_rx_inorder()函数与virtqueue_dequeue_burst_rx()
+//的主要不同是在free描述符的时候，rx_inorder用到的是free_inorder()
+//直接将free_cnt 加num，并且tail_idx指向batch中最后一个描述符的位置。
+//而在burst_rx()中需要对每条描述符链中都依次添加到空闲的描述符链中
+
+void
+vq_ring_free_inorder(struct virtqueue *vq, uint16_t desc_idx, uint16_t num)
+{
+    vq-&gt;vq_free_cnt += num;
+    vq-&gt;vq_desc_tail_idx = desc_idx &amp; (vq-&gt;vq_nentries - 1);
+}
+
+</code></pre>
+<h4 id="tx">tx</h4>
+<p>在tx中与F_IN_ORDER相关的主要是下面这个<code>virtio_xmit_cleanup_inorder</code>,它在vhost的发包函数<code>virtio_xmit_packed_inorder</code>中被调用，目的是在空闲的描述符不足的时候对描述符进行free。从而有足够的描述符来发包。</p>
+<pre><code>/* Cleanup from completed inorder transmits. */
+static __rte_always_inline void
+virtio_xmit_cleanup_inorder(struct virtqueue *vq, uint16_t num)
+{
+    for (i = 0; i &lt; num; i++) {
+        dxp = &amp;vq-&gt;vq_descx[idx++ &amp; (vq-&gt;vq_nentries - 1)];
+        free_cnt += dxp-&gt;ndescs;
+        if (dxp-&gt;cookie != NULL) {
+            rte_pktmbuf_free(dxp-&gt;cookie);
+            dxp-&gt;cookie = NULL;
+        }
+    }
+
+    vq-&gt;vq_free_cnt += free_cnt;
+    vq-&gt;vq_used_cons_idx = idx;
+}
+
+// 与之相对应的是virtio_xmit_cleanup(), 它需要在clean每个描述符的时候
+// clean掉整个chain
+static inline void
+virtio_xmit_cleanup(struct virtqueue *vq, uint16_t num)
+{
+    for (i = 0; i &lt; num; i++) {
+        struct vring_used_elem *uep;
+        struct vq_desc_extra *dxp;
+
+        used_idx = (uint16_t)(vq-&gt;vq_used_cons_idx &amp;
+                (vq-&gt;vq_nentries - 1));
+        uep = &amp;vq-&gt;vq_split.ring.used-&gt;ring[used_idx];
+
+        desc_idx = (uint16_t)uep-&gt;id;
+        dxp = &amp;vq-&gt;vq_descx[desc_idx];
+        vq-&gt;vq_used_cons_idx++;
+    // 为什么用desc_idx，不应该用used_idx吗
+    // 是因为ring.desc和vq_descx的索引事可以共用的吗， 是的！
+    // 而且ring.desc的一条链对应着vq_descx
+        vq_ring_free_chain(vq, desc_idx);
+
+        if (dxp-&gt;cookie != NULL) {
+            rte_pktmbuf_free(dxp-&gt;cookie);
+            dxp-&gt;cookie = NULL;
+        }
+    }
+}
+</code></pre>
+<h3 id="vhost-userdevice">vhost-user(device侧)</h3>
+<p>下面展示的是inorder下的发包流程，这里的重点是<code>vq-&gt;shadow_used_packed[0].id = id</code>，而id为<code>ids[PACKED_BATCH_SIZE - 1]</code>。这说明device在写used ring的时候直接将描述符更新为当前batch最后一个buffer对应的id，这样的话driver就可以通过读这个值，知道当前这个batch的大小。</p>
+<pre><code>virtio_dev_tx_batch_packed(***)
+{
+  ----
+    if (virtio_net_is_inorder(dev))
+        vhost_shadow_dequeue_batch_packed_inorder(vq,
+            ids[PACKED_BATCH_SIZE - 1]);
+    else
+        vhost_shadow_dequeue_batch_packed(dev, vq, ids);
+  ----
+}
+
+static __rte_always_inline void
+vhost_shadow_dequeue_batch_packed_inorder(struct vhost_virtqueue *vq,
+                      uint16_t id)
+{
+    vq-&gt;shadow_used_packed[0].id = id;
+
+    vq_inc_last_used_packed(vq, PACKED_BATCH_SIZE);
+}
+</code></pre>
+<h2 id="virtio_f_in_orderqemu">VIRTIO_F_IN_ORDER如何实现在QEMU中</h2>
+<p>首先展示出QEMU中对virtqueue的处理:</p>
+<p>从virtqueue中dequeue时</p>
+<pre><code>-virtio_net_flush_tx
+--virtqueue_pop
+---virtqueue_pop_split
+---virtqueue_pop_packed
+----virtqueue_map_desc
+</code></pre>
+<p>在目前的实现中,virtio_net_flush_tx将会循环dequeue每一个available的描述符链，并需要在递归描述符链，从而拿到所有需要处理的描述符，在VIRTIO_F_IN_ORDER协商后，这一步的实现应该需要更改成每条描述符链的大小直接计算出这个buffer的size，然后对这个buffer里面的描述符进行处理。</p>
+<p>将描述符dequeue出来后，device将会对buffer进行处理，处理buffer的部分与VIRTIO_F_IN_ORDER feature无关，所以可以不用修改。</p>
+<p>向virtqueue中enqueue时</p>
+<pre><code>-virtqueue_drop_all
+--virtqueue_push
+---virtqueue_fill
+----virtqueue_split_fill
+----virtqueue_packed_fill
+</code></pre>
+<p>与dequeue一样，在目前的实现中virtqueue_drop_all会循环enqueue每一个used的描述符链。在VIRTIO_F_IN_ORDER协商后，这一步的实现需要修改成直接将used_ring里面的描述符更新为当前batch最后一个buffer对应的id。如此driver可以通过读这个值，知道当前这个batch的大小。</p>
+<p>根据上述分析，在我看来在QEMU对virtio-net设备中实现VIRTIO_F_IN_ORDER feature的步骤是:</p>
+<ol>
+<li>首先需要在<code>include/hw/virtio/virtio.h</code>中添加对VIRTIO_F_IN_ORDER feature的定义。</li>
+<li>做qtest写对应的测试用例,能够验证F_IN_ORDER的实现是否正确。</li>
+<li>修改virtio_net_flush_tx和virtqueue_pop，使其直接通过描述符链的大小计算出buffer的大小，然后调用函数处理这个buffer里面的描述符链</li>
+<li>修改virtqueue_drop_all和virtqueue_push，使其直接将used_ring里面的描述符更新为当前batch最后一个buffer对应的id。</li>
+<li>测试virtio-net设备实现了VIRTIO_F_IN_ORDER后的性能（这一步需要在Linux中也实现VIRTIO_F_IN_ORDER后才能够进行)。</li>
+</ol>
+<h2 id="virtio_f_in_orderlinux">VIRTIO_F_IN_ORDER如何实现在Linux中</h2>
+<p>Partial implementation of various ring layouts, useful to tune virtio design.
+Uses shared memory heavily.</p>
+<p>Typical use:</p>
+<h1 id="sh-run-on-allsh-perf-stat-r-10-log-fd-1-ring">sh run-on-all.sh perf stat -r 10 --log-fd 1 -- ./ring</h1>
+<p>首先我们需要在Linux中添加对virtio-net驱动in order特性的实现写测试代码，
+Linux对virtio的测试代码位于<code>tools/virtio</code>中，其中在ringtest中一些通过共享内存实现的不同ring layouts的partial implementations，
+能够用来帮助调试dirvers下面的virtio驱动，我会在这里编写对F_IN_ORDER_FEATURE实现的测试用例, 用来调试与测试。</p>
+<p>接着分析Linux当前对virtqueue的处理:
+首先展示出Linux中对virtqueue的处理
+向virtqueue enqueue时</p>
+<pre><code>-start_xmit
+--xmit_skb
+---virtqueue_add_outbuf
+----virtqueue_add
+-----virtqueue_add_split
+-----virtqueue_add_desc_split // find useable desc by free list
+</code></pre>
+<p>VIRTIO_F_PARTIAL_ORDER
+<a href="https://lists.oasis-open.org/archives/virtio-comment/202008/msg00013.html">https://lists.oasis-open.org/archives/virtio-comment/202008/msg00013.html</a></p>
+<h2 id="_1">参考</h2>
+<p><a href="https://www.dpdk.org/wp-content/uploads/sites/35/2018/09/virtio-1.1_v4.pdf">https://www.dpdk.org/wp-content/uploads/sites/35/2018/09/virtio-1.1_v4.pdf</a></p>
+<p><a href="https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf">https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf</a></p>
+<p><a href="https://patchwork.dpdk.org/project/dpdk/list/?series=223&amp;state=%2A&amp;archive=both">https://patchwork.dpdk.org/project/dpdk/list/?series=223&amp;state=%2A&amp;archive=both</a></p>
+<p><a href="https://github.com/DPDK/dpdk">https://github.com/DPDK/dpdk</a></p>
+<p><a href="https://patchwork.dpdk.org/project/dpdk/patch/20190708171320.38802-13-yong.liu@intel.com/">https://patchwork.dpdk.org/project/dpdk/patch/20190708171320.38802-13-yong.liu@intel.com/</a></p>
+<p><a href="https://www.redhat.com/en/blog/virtqueues-and-virtio-ring-how-data-travels">https://www.redhat.com/en/blog/virtqueues-and-virtio-ring-how-data-travels</a></p>
+<p><a href="https://doc.dpdk.org/guides/nics/virtio.html">https://doc.dpdk.org/guides/nics/virtio.html</a></p>
+<p><a href="https://www.cnblogs.com/LoyenWang/p/14444344.html">https://www.cnblogs.com/LoyenWang/p/14444344.html</a></p>
+<p><a href="https://www.cnblogs.com/LoyenWang/p/14589296.html">https://www.cnblogs.com/LoyenWang/p/14589296.html</a></p>
+<p><a href="https://gitlab.com/qemu-project/qemu">https://gitlab.com/qemu-project/qemu</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>
