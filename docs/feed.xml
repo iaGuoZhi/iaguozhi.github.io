@@ -9,6 +9,13 @@
 
   
   <item>
+    <title>记录一次将虚拟机kernel写坏之后的修复过程</title>
+    <link>https://iaguozhi.github.io/Change-vm-kernel-by-qemu-nbd</link>
+    <guid>https://iaguozhi.github.io/Change-vm-kernel-by-qemu-nbd</guid>
+    <pubDate>Sat, 04 Jun 2022 12:00:00 Z</pubDate>
+  </item>
+  
+  <item>
     <title>What&#39;s New in VIRTIO 1.1</title>
     <link>https://iaguozhi.github.io/virtio11-new-features</link>
     <guid>https://iaguozhi.github.io/virtio11-new-features</guid>
