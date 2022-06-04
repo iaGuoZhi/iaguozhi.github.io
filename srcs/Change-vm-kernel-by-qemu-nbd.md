@@ -79,3 +79,21 @@ legacy_url: yes
 
 ![](../static/console_output.png)
 
+### 虚拟机支持console选择kernel
+
+依照下面代码修改`/etc/default/grub`可以使得在console中能够选择kernel再启动
+
+```
+GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=10
+```
+
+修改grub文件之后要`sudo update-grub`将修改更新到boot分区。
+
+console效果如下:
+
+![](../static/grub_in_console.png)
+
+到这一步如果再将kernel写坏导致不能够ssh或者不能够启动成功，直接重新启动并在console中更换kernel就行。
+
+
