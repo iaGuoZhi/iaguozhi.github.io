@@ -110,6 +110,7 @@ e1000_transmit(struct mbuf *m)
   return 0;
 }
 </code></pre>
+
 <h3 id="_3">收包</h3>
 <p>考虑到有多个网络包同时到来，需要在一次收包过程中处理所有到来的网络包。</p>
 <pre><code>static void
@@ -142,6 +143,7 @@ e1000_recv(void)
   __sync_synchronize();
 }
 </code></pre>
+
 <h2 id="_4">总结</h2>
 <p>比较简单</p>
 <p><img alt="" src="../static/net_time_spend.png" /></p>
