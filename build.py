@@ -23,7 +23,7 @@ markdown_ = markdown.Markdown(
         "attr_list",
         "footnotes",
         "pymdownx.smartsymbols",
-        markdown.extensions.fenced_code.FencedCodeExtension(lang_prefix="language-"),
+        markdown.extensions.fenced_code.FencedCodeExtension(),
         pymdownx.magiclink.MagiclinkExtension(hide_protocol=False,)
     ]
 )
@@ -52,6 +52,10 @@ def render_markdown(content: str) -> str:
 
 
 def write_post(post: frontmatter.Post, content: str):
+    if post.get('private'):
+        private_dir = "/private"
+        post['stem'] = "private/" + post['stem']
+
     if post.get('legacy_url'):
         path = pathlib.Path("./docs/{}/index.html".format(post['stem']))
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,16 +87,25 @@ def write_pygments_style_sheet():
     pathlib.Path("./docs/static/pygments.css").write_text(css)
 
 
-def write_index(posts: Sequence[frontmatter.Post]):
-    posts = sorted(posts, key=lambda post: post['date'], reverse=True)
-    path = pathlib.Path("./docs/index.html")
+def write_index(all_posts: Sequence[frontmatter.Post]):
+    all_posts = sorted(all_posts, key=lambda post: post['date'], reverse=True)
     template = jinja_env.get_template('index.html')
+
+    # Write public index
+    posts = filter(lambda p: not p.get('private'), all_posts)
+    path = pathlib.Path("./docs/index.html")
     rendered = template.render(posts=posts)
     path.write_text(rendered)
 
+    # Write private index
+    posts = filter(lambda p: p.get('private'), all_posts)
+    path = pathlib.Path("./docs/private/index.html")
+    rendered = template.render(posts=posts)
+    path.write_text(rendered)
 
 def write_rss(posts: Sequence[frontmatter.Post]):
     posts = sorted(posts, key=lambda post: post['date'], reverse=True)
+    posts = filter(lambda p: not p.get('private'), posts)
     path = pathlib.Path("./docs/feed.xml")
     template = jinja_env.get_template('rss.xml')
     rendered = template.render(posts=posts, root="https://iaguozhi.github.io")
