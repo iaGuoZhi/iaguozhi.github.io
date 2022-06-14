@@ -43,12 +43,13 @@
     
 <article>
   <aside class="timestamp">
-    <time>Posted by iaGuoZhi on May 29, 2022</time>
+    <time>Posted by iaGuoZhi on June 14, 2022</time>
     · <a href="/">view all posts</a>
   </aside>
   <h1>Run Linux on QEMU</h1>
   <content>
-    <h2 id="virt-install">通过virt-install</h2>
+    <h1 id="_1">面向服务器</h1>
+<h2 id="virt-install">通过virt-install</h2>
 <p>使用libvirt提供的cli来起虚拟机</p>
 <pre><code>virt-install \
 --name falcon-1 \
@@ -62,8 +63,33 @@
 --location 'http://archive.ubuntu.com/ubuntu/dists/bionic/main/installer-amd64/' \
 --extra-args &quot;console=tty0 console=ttyS0,115200n8&quot;
 </code></pre>
-<p>上面代码展示的是通过ubuntu提供的ubuntu18.04启动镜像来起Linux虚拟机。也可以自己制作启动镜像然后通过virt-install启动虚拟机:</p>
-<h2 id="qemu-system-">通过qemu-system-</h2>
+
+<p>上面代码展示的是通过在网络拉取Ubuntu提供的Ubuntu18.04启动镜像来起Linux虚拟机。也可以自己制作或者下载启动镜像然后通过virt-install启动虚拟机:</p>
+<p>通过libvirt启动的虚拟机，在启动成功之后可以通过virsh cli进行管理.
+比如:</p>
+<pre><code>virsh list  // 查看所有虚拟机
+virsh domifaddr $domain   // 查看虚拟机的ip
+virsh console $domain    // 进入虚拟机的console, 如果console没有输出，是需要虚拟机打开console 服务
+virsh destroy $domain    // 关闭虚拟机，并不会删除磁盘文件，能够再次重启
+virsh dumpxml $domain &gt; a.xml  // dump出虚拟机的xml文件
+virsh define a.xml      // 修改虚拟机参数后，定义虚拟机
+virsh start $domain     // 启动虚拟机
+</code></pre>
+
+<h2 id="qemu-system-x86_64">通过qemu-system-x86_64</h2>
+<p>首先下载好虚拟机操作系统的iso文件。</p>
+<pre><code>./qemu/build/qemu-system-x86_64 \
+    -cdrom /path/to/archlinux-2021.07.01-x86_64.iso \
+    -cpu host \
+    -enable-kvm \
+    -m 8G \
+    -smp 8 \
+    -nographic \
+</code></pre>
+
+<h1 id="_2">面向嵌入式</h1>
+<p>嵌入式环境比较复杂，需要自己制作intrd(initramfs, 是虚拟机的rootfs，在上面用Ubuntu或者Arch发行版启动虚拟机中，发行版已经准备了非常大的rootfs文件，因此不用自己制作)，并用Linux源码编译kernel.</p>
+<p>这里只提供了命令，具体的步骤在<a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">stdrc</a>中已经有非常详细的介绍了。</p>
 <pre><code>./qemu-5.0.0/build/aarch64-softmmu/qemu-system-aarch64 \
     -machine virt -cpu cortex-a53 -smp 1 -m 2G \
     -kernel ./linux-5.8.8/build/arch/arm64/boot/Image \
@@ -71,8 +97,11 @@
     -initrd ./busybox-1.32.0/build/initramfs.cpio.gz \
     -nographic
 </code></pre>
-<h2 id="_1">参考</h2>
+
+<h2 id="_3">参考</h2>
 <p><a href="https://graspingtech.com/creating-virtual-machine-virt-install/">https://graspingtech.com/creating-virtual-machine-virt-install/</a></p>
+<p><a href="https://wiki.qemu.org/Hosts/Linux">https://wiki.qemu.org/Hosts/Linux</a></p>
+<p><a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/</a></p>
   </content>
 </article>
 
