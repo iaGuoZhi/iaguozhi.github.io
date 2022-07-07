@@ -117,3 +117,13 @@ git format-patch --cover-letter -s -v 1 -4
 # 自动填充email
 git send-email --identity=linux ***.patch
 ```
+
+### publish
+
+一个内核大佬们写的工具，能够帮助自动整理并发送patch，非常方便:
+
+https://github.com/stefanha/git-publish
+
+## 参考
+
+https://fle.github.io/git-tip-keep-your-branch-clean-with-fixup-and-autosquash.html
