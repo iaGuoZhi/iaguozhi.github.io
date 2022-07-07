@@ -124,6 +124,16 @@ git send-email --identity=linux ***.patch
 
 https://github.com/stefanha/git-publish
 
+## 与 Vim 相关
+
+### vim-fugitive
+
+通过Gdiffsplit和diffput在vim中添加修改
+
+### vim-gitgutter
+
+diff 当前chunk很方便，而且能够用快捷键在chunk之间跳转
+
 ## 参考
 
 https://fle.github.io/git-tip-keep-your-branch-clean-with-fixup-and-autosquash.html
