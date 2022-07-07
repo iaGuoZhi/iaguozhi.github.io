@@ -61,6 +61,20 @@ git rebase -i --autosquash master
 git rebase --signoff HEAD~4
 ```
 
+### stash
+
+贮藏脏工作区的修改
+
+```
+git stash
+```
+
+恢复脏工作区的修改
+
+```
+git stash pop
+```
+
 ### diff
 
 查看与某个commit对比的overview
