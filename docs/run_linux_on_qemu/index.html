@@ -43,14 +43,15 @@
     
 <article>
   <aside class="timestamp">
-    <time>Posted by iaGuoZhi on June 14, 2022</time>
+    <time>Posted by iaGuoZhi on July 08, 2022</time>
     · <a href="/">view all posts</a>
   </aside>
   <h1>Run Linux on QEMU</h1>
   <content>
     <h1 id="_1">面向服务器</h1>
-<h2 id="virt-install">通过virt-install</h2>
+<h2 id="virt-install">通过virt-install(最简单)</h2>
 <p>使用libvirt提供的cli来起虚拟机</p>
+<p>通过libvirt可以使用已经下载好的kernel镜像文件进行启动，也可以直接从网络中拉取kernel镜像（这个是最方便的，只需要执行命令即可), 这里给出通过网络拉取镜像的一个例子，可以直接复制下面的命令来启动一个虚拟机:</p>
 <pre><code>virt-install \
 --name falcon-1 \
 --ram 1024 \
@@ -64,7 +65,6 @@
 --extra-args &quot;console=tty0 console=ttyS0,115200n8&quot;
 </code></pre>
 
-<p>上面代码展示的是通过在网络拉取Ubuntu提供的Ubuntu18.04启动镜像来起Linux虚拟机。也可以自己制作或者下载启动镜像然后通过virt-install启动虚拟机:</p>
 <p>通过libvirt启动的虚拟机，在启动成功之后可以通过virsh cli进行管理.
 比如:</p>
 <pre><code>virsh list  // 查看所有虚拟机
@@ -73,11 +73,11 @@ virsh console $domain    // 进入虚拟机的console, 如果console没有输出
 virsh destroy $domain    // 关闭虚拟机，并不会删除磁盘文件，能够再次重启
 virsh dumpxml $domain &gt; a.xml  // dump出虚拟机的xml文件
 virsh define a.xml      // 修改虚拟机参数后，定义虚拟机
-virsh start $domain     // 启动虚拟机
+virsh start $domain --console    // 启动虚拟机
 </code></pre>
 
 <h2 id="qemu-system-x86_64">通过qemu-system-x86_64</h2>
-<p>首先下载好虚拟机操作系统的iso文件。</p>
+<p>首先下载好虚拟机操作系统的iso文件, 这里使用archlinux的iso文件:</p>
 <pre><code>./qemu/build/qemu-system-x86_64 \
     -cdrom /path/to/archlinux-2021.07.01-x86_64.iso \
     -cpu host \
@@ -87,21 +87,98 @@ virsh start $domain     // 启动虚拟机
     -nographic \
 </code></pre>
 
-<h1 id="_2">面向嵌入式</h1>
-<p>嵌入式环境比较复杂，需要自己制作intrd(initramfs, 是虚拟机的rootfs，在上面用Ubuntu或者Arch发行版启动虚拟机中，发行版已经准备了非常大的rootfs文件，因此不用自己制作)，并用Linux源码编译kernel.</p>
-<p>这里只提供了命令，具体的步骤在<a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">stdrc</a>中已经有非常详细的介绍了。</p>
-<pre><code>./qemu-5.0.0/build/aarch64-softmmu/qemu-system-aarch64 \
-    -machine virt -cpu cortex-a53 -smp 1 -m 2G \
-    -kernel ./linux-5.8.8/build/arch/arm64/boot/Image \
-    -append &quot;console=ttyAMA0&quot; \
-    -initrd ./busybox-1.32.0/build/initramfs.cpio.gz \
-    -nographic
+<h2 id="_2">启动之后</h2>
+<p>启动之后建议进行几个设置:</p>
+<ol>
+<li>在系统安装过程中选中OpenSSH Server进行安装，如此才能够通过ssh进行连接</li>
+<li>开启Console, 在虚拟机(Ubuntu)的<code>/etc/default/grub</code>中修改<code>GRUB\_CMDLINE\_LINUX\_DEFAULT</code>为
+   <code>GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyS0,115200n8"</code>
+这样可以使得即使ssh无法连接，依然能够通过console进入虚拟机。</li>
+<li>设置grub，依照下面代码修改<code>/etc/default/grub</code>可以使得在console中能够选择kernel再启动，对于需要经常修改kernel的时候很方便:</li>
+</ol>
+<pre><code>GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=10
 </code></pre>
 
-<h2 id="_3">参考</h2>
+<p>修改之后需要通过<code>sudo update-grub</code>更新grub。</p>
+<h1 id="_3">面向嵌入式</h1>
+<p>嵌入式环境比较复杂，需要自己制作intrd(initramfs, 是虚拟机的rootfs，在上面用Ubuntu或者Arch发行版启动虚拟机中，发行版已经准备了非常大的rootfs文件，因此不用自己制作)，并用Linux源码编译kernel.</p>
+<p>首先展示一个使用qemu启动bzImage的命令，这个虚拟机拥有一个disk磁盘与网络:</p>
+<pre><code>../qemu/build/qemu-system-x86_64 \
+    -cpu qemu64 -smp 2 -m 2048M \
+    -kernel ./linux/arch/x86_64/boot/bzImage \
+    -append &quot;console=ttyS0 nokaslr root=/dev/vda rootwait&quot; \
+    -initrd ./initramfs/initramfs.cpio.gz -nographic \
+    -device virtio-blk,drive=image \
+    -drive if=none,id=image,file=virtio_blk.img,format=raw \
+    -netdev user,id=net0 -device virtio-net-pci,netdev=net0
+</code></pre>
+
+<p>接着结合上面的命令逐个参数进行介绍:</p>
+<h2 id="bzimage">bzImage</h2>
+<p>在kernel源码中使用make命令即可编程出来</p>
+<h2 id="initrd">initrd</h2>
+<p>一般来说，桌面，服务器中的Linux都需要使用initrd(initramfs)。部分嵌入式系统也会使用initramfs，有时甚至直接将initramfs作为最后系统运行的rootfs。</p>
+<p>initramfs的作用是在系统引导过程中，让内核能够正确驱动rootfs所在的设备。</p>
+<p>initramfs可以使用几种方式来制作:</p>
+<ul>
+<li>busybox, <a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">stdrc</a>中已经有非常详细的介绍。</li>
+<li>buildroot, 比起busybox更加现代。</li>
+</ul>
+<h2 id="block-image">block image</h2>
+<p>用户在initramfs中作的修改并不会被保存下来，如果需要让应用程序能够持久化保存数据，可以添加一个block image。</p>
+<p>block image 可以通过<code>dd</code>来制作</p>
+<pre><code>dd if=/dev/zero of=virtio_blk.img bs=1M count=1024
+mkfs.ext4 virtio_blk.img
+</code></pre>
+
+<p>kernel启动之后，可以通过<code>blkid</code>指令看到这个block设备，通常是<code>/dev/vda</code>, 此时可以使用</p>
+<pre><code>mount /dev/vda /mnt
+</code></pre>
+
+<p>来挂载这个设备。</p>
+<h2 id="netdev">netdev</h2>
+<p>通过这个参数可以为虚拟机添加网络支持，但是启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考<a href="https://blog.csdn.net/lee244868149/article/details/49249887">dhcp</a>。</p>
+<h2 id="chroot">chroot</h2>
+<p>有些时候，我们可能觉得initrd中提供的命令不够，此时我们可以使用主流Linux发行版制作的rootfs来作为我们最后的rootfs(此时甚至可以在kernel中使用Ubuntu的apt安装程序):</p>
+<p>以Ubuntu为例，首先下载Ubuntu 20.04的<a href="http://cdimage.ubuntu.com/ubuntu-base/releases/20.04/release/ubuntu-base-20.04.1-base-amd64.tar.gz">rootfs</a> 文件，
+接着在制作block image的时候使用以下指令</p>
+<pre><code>dd if=/dev/zero of=virtio_blk.img bs=1M count=1024
+mkfs.ext4 virtio_blk.img
+mkdir -p tmpfs
+sudo mount -t ext4 virtio_blk.img tmpfs/ -o loop
+sudo cp -r ubuntu20-rootfs/* tmpfs/
+sudo sync
+sudo umount tmpfs
+rmdir tmpfs
+</code></pre>
+
+<p>如此在mount <code>/dev/vda</code>之后能够使用<code>chroot</code>来更改root文件夹位置, 之后就能够直接使用Ubuntu 20.04提供的用户态程序。</p>
+<h2 id="gdb">gdb</h2>
+<p>直接使用一个bzImage来启动Linux有一个好处，就是可以使用<a href="https://www.kernel.org/doc/Documentation/dev-tools/gdb-kernel-debugging.rst">gdb</a>来对内核进行调试，此时需要使用<code>nokaslr</code>启动参数关闭kaslr。</p>
+<h2 id="_4">启动之后</h2>
+<p>使用bzImage+initrd启动时，虚拟机默认不会拥有disk和net，需要根据上述说明开启，可以选择在initramfs中的init程序来执行这些需要开启的操作。</p>
+<p>以我BusyBox中的init程序为例:</p>
+<pre><code>#!/bin/sh
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs devtmpfs /dev
+
+ifconfig eth0 up
+udhcpc
+
+echo -e &quot;\nBoot took $(cut -d' ' -f1 /proc/uptime) seconds\n&quot;
+
+exec /bin/sh
+</code></pre>
+
+<p>就在启动过程中，开启了网络并动态获取了ip。</p>
+<h1 id="_5">参考</h1>
 <p><a href="https://graspingtech.com/creating-virtual-machine-virt-install/">https://graspingtech.com/creating-virtual-machine-virt-install/</a></p>
 <p><a href="https://wiki.qemu.org/Hosts/Linux">https://wiki.qemu.org/Hosts/Linux</a></p>
 <p><a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/</a></p>
+<p><a href="https://blog.csdn.net/lee244868149/article/details/49249887">https://blog.csdn.net/lee244868149/article/details/49249887</a></p>
   </content>
 </article>
 

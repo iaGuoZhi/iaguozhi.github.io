@@ -1,14 +1,16 @@
 ---
 title: Run Linux on QEMU
-date: 2022-06-14
+date: 2022-07-08
 legacy_url: yes
 ---
 
 # 面向服务器
 
-## 通过virt-install
+## 通过virt-install(最简单)
 
 使用libvirt提供的cli来起虚拟机
+
+通过libvirt可以使用已经下载好的kernel镜像文件进行启动，也可以直接从网络中拉取kernel镜像（这个是最方便的，只需要执行命令即可), 这里给出通过网络拉取镜像的一个例子，可以直接复制下面的命令来启动一个虚拟机:
 
 ```
 virt-install \
@@ -24,8 +26,6 @@ virt-install \
 --extra-args "console=tty0 console=ttyS0,115200n8"
 ```
 
-上面代码展示的是通过在网络拉取Ubuntu提供的Ubuntu18.04启动镜像来起Linux虚拟机。也可以自己制作或者下载启动镜像然后通过virt-install启动虚拟机:
-
 通过libvirt启动的虚拟机，在启动成功之后可以通过virsh cli进行管理.
 比如:
 
@@ -36,12 +36,12 @@ virsh console $domain    // 进入虚拟机的console, 如果console没有输出
 virsh destroy $domain    // 关闭虚拟机，并不会删除磁盘文件，能够再次重启
 virsh dumpxml $domain > a.xml  // dump出虚拟机的xml文件
 virsh define a.xml      // 修改虚拟机参数后，定义虚拟机
-virsh start $domain     // 启动虚拟机
+virsh start $domain --console    // 启动虚拟机
 ```
 
 ## 通过qemu-system-x86\_64 
 
-首先下载好虚拟机操作系统的iso文件。
+首先下载好虚拟机操作系统的iso文件, 这里使用archlinux的iso文件:
 
 ```
 ./qemu/build/qemu-system-x86_64 \
@@ -53,23 +53,128 @@ virsh start $domain     // 启动虚拟机
     -nographic \
 ```
 
+## 启动之后
+
+启动之后建议进行几个设置:
+
+1. 在系统安装过程中选中OpenSSH Server进行安装，如此才能够通过ssh进行连接
+2. 开启Console, 在虚拟机(Ubuntu)的`/etc/default/grub`中修改`GRUB\_CMDLINE\_LINUX\_DEFAULT`为
+   ```
+   GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyS0,115200n8"
+   ```
+这样可以使得即使ssh无法连接，依然能够通过console进入虚拟机。
+3. 设置grub，依照下面代码修改`/etc/default/grub`可以使得在console中能够选择kernel再启动，对于需要经常修改kernel的时候很方便:
+
+```
+GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=10
+```
+
+修改之后需要通过`sudo update-grub`更新grub。
+
 # 面向嵌入式
 
 嵌入式环境比较复杂，需要自己制作intrd(initramfs, 是虚拟机的rootfs，在上面用Ubuntu或者Arch发行版启动虚拟机中，发行版已经准备了非常大的rootfs文件，因此不用自己制作)，并用Linux源码编译kernel.
 
-这里只提供了命令，具体的步骤在[stdrc](https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/)中已经有非常详细的介绍了。
+首先展示一个使用qemu启动bzImage的命令，这个虚拟机拥有一个disk磁盘与网络:
 
 ```
-./qemu-5.0.0/build/aarch64-softmmu/qemu-system-aarch64 \
-    -machine virt -cpu cortex-a53 -smp 1 -m 2G \
-    -kernel ./linux-5.8.8/build/arch/arm64/boot/Image \
-    -append "console=ttyAMA0" \
-    -initrd ./busybox-1.32.0/build/initramfs.cpio.gz \
-    -nographic
+../qemu/build/qemu-system-x86_64 \
+    -cpu qemu64 -smp 2 -m 2048M \
+    -kernel ./linux/arch/x86_64/boot/bzImage \
+    -append "console=ttyS0 nokaslr root=/dev/vda rootwait" \
+    -initrd ./initramfs/initramfs.cpio.gz -nographic \
+    -device virtio-blk,drive=image \
+    -drive if=none,id=image,file=virtio_blk.img,format=raw \
+    -netdev user,id=net0 -device virtio-net-pci,netdev=net0
 ```
 
+接着结合上面的命令逐个参数进行介绍:
 
-## 参考
+## bzImage
+
+在kernel源码中使用make命令即可编程出来
+
+## initrd
+
+一般来说，桌面，服务器中的Linux都需要使用initrd(initramfs)。部分嵌入式系统也会使用initramfs，有时甚至直接将initramfs作为最后系统运行的rootfs。
+
+initramfs的作用是在系统引导过程中，让内核能够正确驱动rootfs所在的设备。
+
+initramfs可以使用几种方式来制作:
+
+* busybox, [stdrc](https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/)中已经有非常详细的介绍。
+* buildroot, 比起busybox更加现代。
+
+## block image
+
+用户在initramfs中作的修改并不会被保存下来，如果需要让应用程序能够持久化保存数据，可以添加一个block image。
+
+block image 可以通过`dd`来制作
+
+```
+dd if=/dev/zero of=virtio_blk.img bs=1M count=1024
+mkfs.ext4 virtio_blk.img
+```
+
+kernel启动之后，可以通过`blkid`指令看到这个block设备，通常是`/dev/vda`, 此时可以使用
+```
+mount /dev/vda /mnt
+```
+来挂载这个设备。
+
+## netdev
+
+通过这个参数可以为虚拟机添加网络支持，但是启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考[dhcp](https://blog.csdn.net/lee244868149/article/details/49249887)。
+
+## chroot
+
+有些时候，我们可能觉得initrd中提供的命令不够，此时我们可以使用主流Linux发行版制作的rootfs来作为我们最后的rootfs(此时甚至可以在kernel中使用Ubuntu的apt安装程序):
+
+以Ubuntu为例，首先下载Ubuntu 20.04的[rootfs](http://cdimage.ubuntu.com/ubuntu-base/releases/20.04/release/ubuntu-base-20.04.1-base-amd64.tar.gz) 文件，
+接着在制作block image的时候使用以下指令
+
+```
+dd if=/dev/zero of=virtio_blk.img bs=1M count=1024
+mkfs.ext4 virtio_blk.img
+mkdir -p tmpfs
+sudo mount -t ext4 virtio_blk.img tmpfs/ -o loop
+sudo cp -r ubuntu20-rootfs/* tmpfs/
+sudo sync
+sudo umount tmpfs
+rmdir tmpfs
+```
+
+如此在mount `/dev/vda`之后能够使用`chroot`来更改root文件夹位置, 之后就能够直接使用Ubuntu 20.04提供的用户态程序。
+
+## gdb
+
+直接使用一个bzImage来启动Linux有一个好处，就是可以使用[gdb](https://www.kernel.org/doc/Documentation/dev-tools/gdb-kernel-debugging.rst)来对内核进行调试，此时需要使用`nokaslr`启动参数关闭kaslr。
+
+## 启动之后
+
+使用bzImage+initrd启动时，虚拟机默认不会拥有disk和net，需要根据上述说明开启，可以选择在initramfs中的init程序来执行这些需要开启的操作。
+
+以我BusyBox中的init程序为例:
+
+```
+#!/bin/sh
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs devtmpfs /dev
+
+ifconfig eth0 up
+udhcpc
+
+echo -e "\nBoot took $(cut -d' ' -f1 /proc/uptime) seconds\n"
+
+exec /bin/sh
+```
+
+就在启动过程中，开启了网络并动态获取了ip。
+
+# 参考
 
 https://graspingtech.com/creating-virtual-machine-virt-install/
 
@@ -77,3 +182,4 @@ https://wiki.qemu.org/Hosts/Linux
 
 https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/
 
+https://blog.csdn.net/lee244868149/article/details/49249887
