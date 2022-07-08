@@ -1,14 +1,14 @@
 ---
-title: Run Linux on QEMU
+title: 通过Qemu来运行Linux的多种方法
 date: 2022-07-08
 legacy_url: yes
 ---
 
 # 面向服务器
 
-## 通过virt-install(最简单)
+## 通过libvirt(最简单)
 
-使用libvirt提供的cli来起虚拟机
+使用libvirt提供的cli来起虚拟机, 本质上还是使用qemu来运行虚拟机的，libvirt是一套比较好操作的脚手架。
 
 通过libvirt可以使用已经下载好的kernel镜像文件进行启动，也可以直接从网络中拉取kernel镜像（这个是最方便的，只需要执行命令即可), 这里给出通过网络拉取镜像的一个例子，可以直接复制下面的命令来启动一个虚拟机:
 
@@ -37,6 +37,24 @@ virsh destroy $domain    // 关闭虚拟机，并不会删除磁盘文件，能�
 virsh dumpxml $domain > a.xml  // dump出虚拟机的xml文件
 virsh define a.xml      // 修改虚拟机参数后，定义虚拟机
 virsh start $domain --console    // 启动虚拟机
+```
+
+其中dumpxml格外有用，能够帮助我们更改虚拟机的配置再启动。
+
+比如在下面这段xml文件中，如果没有`<driver name="qemu"/>`，虚拟机使用的virtio-net backend就是默认的运行在内核态的vhost，加入了之后就是Qemu。
+
+```
+<devices>
+      <interface type='network'>
+      <mac address='02:ca:fe:fa:ce:01'/>   
+      <source network='default' bridge='virbr0'/>                
+      <target dev='vnet0'/>   
+      <model type='virtio'/>
+             <driver name="qemu"/>
+      <alias name='net0'/>  
+      <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
+      </interface>                                                                                     
+</devices>
 ```
 
 ## 通过qemu-system-x86\_64 

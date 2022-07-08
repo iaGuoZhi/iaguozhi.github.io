@@ -8,7 +8,7 @@
   <meta name="author" content="iaGuoZhi">
   <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
 
-  <title>Run Linux on QEMU - iaGuoZhi</title>
+  <title>通过Qemu来运行Linux的多种方法 - iaGuoZhi</title>
 
   <!-- RSS -->
   <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
@@ -23,8 +23,8 @@
   <link href="/static/pygments.css" rel="stylesheet">
 
   
-<meta property="og:title" content="Run Linux on QEMU - iaGuoZhi">
-<meta property="twitter:title" content="Run Linux on QEMU - iaGuoZhi">
+<meta property="og:title" content="通过Qemu来运行Linux的多种方法 - iaGuoZhi">
+<meta property="twitter:title" content="通过Qemu来运行Linux的多种方法 - iaGuoZhi">
 
 
 
@@ -46,11 +46,11 @@
     <time>Posted by iaGuoZhi on July 08, 2022</time>
     · <a href="/">view all posts</a>
   </aside>
-  <h1>Run Linux on QEMU</h1>
+  <h1>通过Qemu来运行Linux的多种方法</h1>
   <content>
     <h1 id="_1">面向服务器</h1>
-<h2 id="virt-install">通过virt-install(最简单)</h2>
-<p>使用libvirt提供的cli来起虚拟机</p>
+<h2 id="libvirt">通过libvirt(最简单)</h2>
+<p>使用libvirt提供的cli来起虚拟机, 本质上还是使用qemu来运行虚拟机的，libvirt是一套比较好操作的脚手架。</p>
 <p>通过libvirt可以使用已经下载好的kernel镜像文件进行启动，也可以直接从网络中拉取kernel镜像（这个是最方便的，只需要执行命令即可), 这里给出通过网络拉取镜像的一个例子，可以直接复制下面的命令来启动一个虚拟机:</p>
 <pre><code>virt-install \
 --name falcon-1 \
@@ -74,6 +74,21 @@ virsh destroy $domain    // 关闭虚拟机，并不会删除磁盘文件，能�
 virsh dumpxml $domain &gt; a.xml  // dump出虚拟机的xml文件
 virsh define a.xml      // 修改虚拟机参数后，定义虚拟机
 virsh start $domain --console    // 启动虚拟机
+</code></pre>
+
+<p>其中dumpxml格外有用，能够帮助我们更改虚拟机的配置再启动。</p>
+<p>比如在下面这段xml文件中，如果没有<code>&lt;driver name="qemu"/&gt;</code>，虚拟机使用的virtio-net backend就是默认的运行在内核态的vhost，加入了之后就是Qemu。</p>
+<pre><code>&lt;devices&gt;
+      &lt;interface type='network'&gt;
+      &lt;mac address='02:ca:fe:fa:ce:01'/&gt;   
+      &lt;source network='default' bridge='virbr0'/&gt;                
+      &lt;target dev='vnet0'/&gt;   
+      &lt;model type='virtio'/&gt;
+             &lt;driver name=&quot;qemu&quot;/&gt;
+      &lt;alias name='net0'/&gt;  
+      &lt;address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/&gt;
+      &lt;/interface&gt;                                                                                     
+&lt;/devices&gt;
 </code></pre>
 
 <h2 id="qemu-system-x86_64">通过qemu-system-x86_64</h2>
