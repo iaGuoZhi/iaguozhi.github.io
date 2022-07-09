@@ -159,6 +159,11 @@ git format-patch --cover-letter -s -v 1 -4
 
 ### send-email
 
+通过email发送patch的一个例子:
+```
+git send-email 0001-acpi-processor_idle.c-Fix-kernel-pointer-leak.patch --to rafael@kernel.org,lenb@kernel.org --cc linux-acpi@vger.kernel.org,linux-kernel@vger.kernel.org
+```
+
 发送邮件来提交patch, 但是查找邮件的发送对象很麻烦，而且还需要抄写，难免会出现错误，可以使用这个技巧来自动填充email
 首先在gitconfig中设置:
 ```
