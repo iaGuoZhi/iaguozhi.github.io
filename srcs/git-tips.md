@@ -8,6 +8,22 @@ legacy_url: yes
 
 ## 常规
 
+### branch
+
+列出所有分支(本地和远程)
+
+```
+git branch -a
+```
+
+### add
+
+分块添加进暂存区，而不是添加整个文件
+
+```
+git add -p
+```
+
 ### pull
 
 仅仅pull最近的一个commit:
@@ -110,6 +126,21 @@ git log --oneline
 git bisect
 ```
 
+### submodules
+
+更新所有的submodule
+
+```
+git submodule update --init --recursive
+```
+
+### help
+
+git最常见的用法示例
+```
+git help everyday
+```
+
 ## 与 Patch 相关 
 
 ### format-patch
@@ -161,3 +192,5 @@ diff 当前chunk很方便，而且能够用快捷键在chunk之间跳转
 ## 参考
 
 https://fle.github.io/git-tip-keep-your-branch-clean-with-fixup-and-autosquash.html
+
+https://github.com/git-tips/tips

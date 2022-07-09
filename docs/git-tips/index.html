@@ -50,6 +50,16 @@
   <content>
     <p>使用git已经有四年了，但是发现自己大多数的时候都只会使用add, commit, push, pull, checkout这几个指令，不愿意去学习新的命令。但其实git是个宝藏，里面充满着大佬们几十年编程经验中对版本管理，工作流悟出来的智慧。于是我整理下自己发现的好用的git技巧，以便经常查阅使用。</p>
 <h2 id="_1">常规</h2>
+<h3 id="branch">branch</h3>
+<p>列出所有分支(本地和远程)</p>
+<pre><code>git branch -a
+</code></pre>
+
+<h3 id="add">add</h3>
+<p>分块添加进暂存区，而不是添加整个文件</p>
+<pre><code>git add -p
+</code></pre>
+
 <h3 id="pull">pull</h3>
 <p>仅仅pull最近的一个commit:</p>
 <pre><code>git pull origin master --depth=1
@@ -121,6 +131,16 @@
 <pre><code>git bisect
 </code></pre>
 
+<h3 id="submodules">submodules</h3>
+<p>更新所有的submodule</p>
+<pre><code>git submodule update --init --recursive
+</code></pre>
+
+<h3 id="help">help</h3>
+<p>git最常见的用法示例</p>
+<pre><code>git help everyday
+</code></pre>
+
 <h2 id="patch">与 Patch 相关</h2>
 <h3 id="format-patch">format-patch</h3>
 <p>使用最近的4个commit制作版本为1的4个patch，并且添加签名, 添加patch来介绍这个series</p>
@@ -155,6 +175,7 @@ git send-email --identity=linux ***.patch
 <p>diff 当前chunk很方便，而且能够用快捷键在chunk之间跳转</p>
 <h2 id="_2">参考</h2>
 <p><a href="https://fle.github.io/git-tip-keep-your-branch-clean-with-fixup-and-autosquash.html">https://fle.github.io/git-tip-keep-your-branch-clean-with-fixup-and-autosquash.html</a></p>
+<p><a href="https://github.com/git-tips/tips">https://github.com/git-tips/tips</a></p>
   </content>
 </article>
 
