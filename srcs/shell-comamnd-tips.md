@@ -20,8 +20,42 @@ sudo systemctl start docker
 pidof clash
 ```
 
+### pidstat
+
+查看每秒中CPU使用最多的10个进程
+```
+pidstat -u | sort -nr -k 4 | head -5
+```
+
+### lspci
+
+显示所有PCI设备的设备名字(出厂型号)
+```
+lspci -nn
+```
+
 
 ## 文本&文件
+
+### cat
+
+制表符显示为^I
+```
+cat -T file.py
+```
+### find
+
+找到所有.swp文件并删除
+```
+find . -type f -name "*.swp" -delete
+```
+
+### xargs
+
+将args.txt中的每一行作为参数执行一次exec.sh
+```
+cat args.txt | xargs -n 1 ./exec.sh
+```
 
 ### tree
 
@@ -37,14 +71,26 @@ python3 -m http.server 8080
 
 ## 磁盘
 
+### du
+
+查看各个当前各个目录中文件的总大小
+```
+du -sh ./*
+```
+
 ### dd
 ```
-dd if=/dev/zero of=virtio_blk.img bs=1M count=1024\nmkfs.ext4 virtio_blk.img
+sudo dd if=/dev/zero of=./virtio_blk.img bs=1M count=1024
+sudo mkfs.ext3 ./virtio_blk.img
+sudo sync
 ```
 
 ### lsblk
 
 ### mount
+```
+mount -o loop=/dev/loop0 ./image ./mnt
+```
 
 ## 网络
 
@@ -112,6 +158,15 @@ sudo iptables --policy FORWARD ACCEPT
 
 ### tcpdump
 
+嗅探50个包，并保存
+```
+tcpdump -w /tmp/tcpdump.raw -c 50
+```
+查看对应包的头部
+```
+tcpdump -X -r /tmp/tcpdump.raw host google.com and port http
+```
+
 ### arp
 
 ## 调试
@@ -129,6 +184,11 @@ sudo gdb --args ./test --batch=2 --no-indirect
 sudo echo "7" > /proc/sys/kernel/printk
 ```
 ### debugfs
+
+挂载debugfs
+```
+sudo mount -t debugfs none /sys/kernel/debug
+```
 
 ### objdump
 
@@ -166,7 +226,16 @@ clang-format -i -style=./.clang-format ./include/qemu/uri.h
 
 # Shell 语法
 
-## for
+### if
+
+```
+if [ -e $path ]; then
+    echo "File exists";
+else
+    echo "Does not exist";
+fi
+```
+### for
 
 ```
 for num in {1..5}; do qemu-aarch64 bomb-${num} < ans-${num}.txt; done

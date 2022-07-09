@@ -58,7 +58,32 @@
 <pre><code>pidof clash
 </code></pre>
 
+<h3 id="pidstat">pidstat</h3>
+<p>查看每秒中CPU使用最多的10个进程</p>
+<pre><code>pidstat -u | sort -nr -k 4 | head -5
+</code></pre>
+
+<h3 id="lspci">lspci</h3>
+<p>显示所有PCI设备的设备名字(出厂型号)</p>
+<pre><code>lspci -nn
+</code></pre>
+
 <h2 id="_3">文本&amp;文件</h2>
+<h3 id="cat">cat</h3>
+<p>制表符显示为^I</p>
+<pre><code>cat -T file.py
+</code></pre>
+
+<h3 id="find">find</h3>
+<p>找到所有.swp文件并删除</p>
+<pre><code>find . -type f -name &quot;*.swp&quot; -delete
+</code></pre>
+
+<h3 id="xargs">xargs</h3>
+<p>将args.txt中的每一行作为参数执行一次exec.sh</p>
+<pre><code>cat args.txt | xargs -n 1 ./exec.sh
+</code></pre>
+
 <h3 id="tree">tree</h3>
 <h3 id="_4">重定向</h3>
 <h3 id="_5">软链接</h3>
@@ -67,12 +92,22 @@
 </code></pre>
 
 <h2 id="_7">磁盘</h2>
+<h3 id="du">du</h3>
+<p>查看各个当前各个目录中文件的总大小</p>
+<pre><code>du -sh ./*
+</code></pre>
+
 <h3 id="dd">dd</h3>
-<pre><code>dd if=/dev/zero of=virtio_blk.img bs=1M count=1024\nmkfs.ext4 virtio_blk.img
+<pre><code>sudo dd if=/dev/zero of=./virtio_blk.img bs=1M count=1024
+sudo mkfs.ext3 ./virtio_blk.img
+sudo sync
 </code></pre>
 
 <h3 id="lsblk">lsblk</h3>
 <h3 id="mount">mount</h3>
+<pre><code>mount -o loop=/dev/loop0 ./image ./mnt
+</code></pre>
+
 <h2 id="_8">网络</h2>
 <h3 id="ssh">ssh</h3>
 <p>反向转发, 用来作跳板机</p>
@@ -119,6 +154,14 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 </code></pre>
 
 <h3 id="tcpdump">tcpdump</h3>
+<p>嗅探50个包，并保存</p>
+<pre><code>tcpdump -w /tmp/tcpdump.raw -c 50
+</code></pre>
+
+<p>查看对应包的头部</p>
+<pre><code>tcpdump -X -r /tmp/tcpdump.raw host google.com and port http
+</code></pre>
+
 <h3 id="arp">arp</h3>
 <h2 id="_9">调试</h2>
 <h3 id="gdb">gdb</h3>
@@ -131,6 +174,10 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 </code></pre>
 
 <h3 id="debugfs">debugfs</h3>
+<p>挂载debugfs</p>
+<pre><code>sudo mount -t debugfs none /sys/kernel/debug
+</code></pre>
+
 <h3 id="objdump">objdump</h3>
 <pre><code>aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin | awk '{print $0} $3-/ret?/{exit}'
 </code></pre>
@@ -154,7 +201,15 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 </code></pre>
 
 <h1 id="shell">Shell 语法</h1>
-<h2 id="for">for</h2>
+<h3 id="if">if</h3>
+<pre><code>if [ -e $path ]; then
+    echo &quot;File exists&quot;;
+else
+    echo &quot;Does not exist&quot;;
+fi
+</code></pre>
+
+<h3 id="for">for</h3>
 <pre><code>for num in {1..5}; do qemu-aarch64 bomb-${num} &lt; ans-${num}.txt; done
 </code></pre>
 
