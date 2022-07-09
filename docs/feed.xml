@@ -58,14 +58,14 @@
   </item>
   
   <item>
-    <title>How to use sva feature in 2022</title>
+    <title>如何使用sva特性(2022)</title>
     <link>https://iaguozhi.github.io/how-to-use-sva-in-2022</link>
     <guid>https://iaguozhi.github.io/how-to-use-sva-in-2022</guid>
     <pubDate>Fri, 06 May 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
-    <title>Send patch to QEMU</title>
+    <title>给QEMU发送patch的步骤</title>
     <link>https://iaguozhi.github.io/qemu_patch</link>
     <guid>https://iaguozhi.github.io/qemu_patch</guid>
     <pubDate>Tue, 03 May 2022 12:00:00 Z</pubDate>
@@ -79,7 +79,7 @@
   </item>
   
   <item>
-    <title>a journey to the vhost-users realm</title>
+    <title>DPDK中的VIRTIO</title>
     <link>https://iaguozhi.github.io/virtio-networking</link>
     <guid>https://iaguozhi.github.io/virtio-networking</guid>
     <pubDate>Wed, 06 Apr 2022 12:00:00 Z</pubDate>

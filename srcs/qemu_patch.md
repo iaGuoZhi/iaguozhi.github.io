@@ -1,5 +1,5 @@
 ---
-title: Send patch to QEMU
+title: 给QEMU发送patch的步骤
 date: 2022-05-03
 legacy_url: yes
 ---
