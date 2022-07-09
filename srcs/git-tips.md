@@ -51,12 +51,22 @@ git cherry-pick SHA1
 
 ### rebase
 
-通过rebase可以修改commit信息, 还能够合并fixup!的commit
+通过rebase可以非常方便的修改已经commit的代码, 比如要修改commit HEAD^^，可以通过
+
+```
+git rebase -i HEAD^^^
+```
+在rebase的编辑界面，将目标commit从pick改成edit，即可修改
+
+此外能够在编辑界面修改keyword实现删除某个commit，合并commit，更改commit message
+
+rebase非常好用，我经常使用的指令还有这个:
 ```
 git rebase -i --autosquash master
 ```
+它能合并需要被squash的commit, 需要与git commit --fixup搭配使用
 
-为最近的四个commit增加签名
+通过rebase还能够为commit添加签名，比如为最近的四个commit增加签名
 ```
 git rebase --signoff HEAD~4
 ```
@@ -134,7 +144,7 @@ git send-email --identity=linux ***.patch
 
 ### publish
 
-一个内核大佬们写的工具，能够帮助自动整理并发送patch，非常方便:
+一个内核大佬们写的工具，能够帮助自动整理并发送patch（自动化patch以及cover letter生成，patch的版本管理，邮件管理)，发送patch只需要一个命令即可，非常方便:
 
 https://github.com/stefanha/git-publish
 
