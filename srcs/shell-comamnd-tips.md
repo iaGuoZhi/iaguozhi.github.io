@@ -333,6 +333,15 @@ sudo gdb --args ./test --batch=2 --no-indirect
 ```
 sudo echo "7" > /proc/sys/kernel/printk
 ```
+
+### sysfs
+
+pci设备与驱动绑定:
+
+```
+echo 0000:00:19.0 > /sys/bus/pci/drivers/foo/bind
+```
+
 ### debugfs
 
 挂载debugfs
