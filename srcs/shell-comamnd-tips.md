@@ -1,5 +1,5 @@
 ---
-title: 实用的命令行技巧
+title: 常用的命令行技巧
 date: 2022-07-09
 legacy_url: yes
 ---
