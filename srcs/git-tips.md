@@ -151,6 +151,16 @@ git help everyday
 
 ## 与 Patch 相关 
 
+### commit 规范
+
+1. commit信息不能够每一行不能够过长也不能够过短，在vim中选中后按g,w自动format commit信息
+2. 在patch新版本对上一个版本增加了修改可以在commit中直接标记, 例如
+```
+---
+v3:
+- Use C style comment
+```
+
 ### format-patch
 
 使用最近的4个commit制作版本为1的4个patch，并且添加签名, 添加patch来介绍这个series

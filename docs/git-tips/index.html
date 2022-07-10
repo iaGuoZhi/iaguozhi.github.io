@@ -147,6 +147,16 @@
 </code></pre>
 
 <h2 id="patch">与 Patch 相关</h2>
+<h3 id="commit_1">commit 规范</h3>
+<ol>
+<li>commit信息不能够每一行不能够过长也不能够过短，在vim中选中后按g,w自动format commit信息</li>
+<li>在patch新版本对上一个版本增加了修改可以在commit中直接标记, 例如</li>
+</ol>
+<pre><code>---
+v3:
+- Use C style comment
+</code></pre>
+
 <h3 id="format-patch">format-patch</h3>
 <p>使用最近的4个commit制作版本为1的4个patch，并且添加签名, 添加patch来介绍这个series</p>
 <pre><code>git format-patch --cover-letter -s -v 1 -4
