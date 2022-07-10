@@ -8,6 +8,14 @@ legacy_url: yes
 
 ## 常规
 
+### clone
+
+clone并更名为linux:
+
+```
+git clone https://github.com/openeuler-mirror/kernel.git linux
+```
+
 ### branch
 
 列出所有分支(本地和远程)
