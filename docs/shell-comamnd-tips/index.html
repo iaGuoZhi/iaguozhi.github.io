@@ -66,6 +66,8 @@
 <pre><code>sudo systemctl start docker
 </code></pre>
 
+<h3 id="w">w</h3>
+<p>查看当前登录的用户</p>
 <h3 id="pidof">pidof</h3>
 <pre><code>pidof clash
 </code></pre>
@@ -90,6 +92,11 @@
 <h3 id="cat">cat</h3>
 <p>制表符显示为^I</p>
 <pre><code>cat -T file.py
+</code></pre>
+
+<h3 id="which-whereis">which | whereis</h3>
+<p>查看软件位置</p>
+<pre><code>whereis google-chrome-stable
 </code></pre>
 
 <h3 id="find">find</h3>
@@ -129,7 +136,13 @@
 <pre><code>ln -s /run/media/who/113423 ~/link
 </code></pre>
 
+<h3 id="vim">vim</h3>
+<p>直接使用vim查看编辑某函数(需要先使用ctags生成tags文件)</p>
+<pre><code>vim -t func_name
+</code></pre>
+
 <h3 id="_7">在浏览器中查看文件</h3>
+<p>在服务器中查看文件很不方便，可以使用这一招，通过静态的Web Server来查看:</p>
 <pre><code>python3 -m http.server 8080
 </code></pre>
 
@@ -156,36 +169,36 @@ sudo sync
 <h3 id="fdisk">fdisk</h3>
 <p>fdisk 用来给image文件或者磁盘添加分区</p>
 <p>以更改虚拟机硬盘大小来介绍使用，假设host想要让vm的磁盘增加至100G, 则host使用qemu-img扩大image大小</p>
-<pre><code>qemu-img info ./dick1.img //查看当前磁盘大小
-qemu-img resize ./disk1.img 100G //将磁盘大小设置为100G
+<pre><code>qemu-img info ./dick1.img # 查看当前磁盘大小
+qemu-img resize ./disk1.img 100G # 将磁盘大小设置为100G
 </code></pre>
 
 <p>在vm启动后，需要创建新分区来使用新增加的磁盘部分:</p>
 <pre><code>sudo fdisk /dev/vda
 
-//输入n新建一个分区，head offset与end offset使用默认值，占满整个磁盘
+# 输入n新建一个分区，head offset与end offset使用默认值，占满整个磁盘
 
-//输入w 将更改写入磁盘
+# 输入w 将更改写入磁盘
 
-sudo mkfs.ext4 /dev/vda2 格式化刚刚新建的磁盘分区
+sudo mkfs.ext4 /dev/vda2 # 格式化刚刚新建的磁盘分区
 
-mount /dev/vda2 ./mnt 挂载新建分区
+mount /dev/vda2 ./mnt # 挂载新建分区
 </code></pre>
 
 <h3 id="swap">swap</h3>
-<pre><code>swapon -s //检查swap文件是否存在，返回空则不存在
+<pre><code>swapon -s # 检查swap文件是否存在，返回空则不存在
 
-df -hal //查看文件系统，检查空间是否足够创建swap
+df -hal # 查看文件系统，检查空间是否足够创建swap
 
-mkdir /swap //创建一个swap目录
+mkdir /swap # 创建一个swap目录
 
-dd if=/dev/zero of=/tmp/swapfile bs=1024 count=2048000 //创建并允许swap文件
+dd if=/dev/zero of=/tmp/swapfile bs=1024 count=2048000 # 创建并允许swap文件
 
-mkswap -f /tmp/swapfile //格式化swap文件
+mkswap -f /tmp/swapfile # 格式化swap文件
 
-swapon /tmp/swapfile //激活swap
+swapon /tmp/swapfile # 激活swap
 
-/tmp/swapfile swap swap defaults 0 0 //vim 打开 /etc/fstab 添加这一行设置开机自启动
+/tmp/swapfile swap swap defaults 0 0 # vim 打开 /etc/fstab 添加这一行设置开机自启动
 </code></pre>
 
 <h2 id="_10">网络</h2>
@@ -215,7 +228,7 @@ sudo ifconfig eth0 up
 
 <h3 id="curl">curl</h3>
 <p>通过curl 安装pip</p>
-<pre><code>curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3
+<pre><code>curl -sS https:# bootstrap.pypa.io/get-pip.py | sudo python3
 </code></pre>
 
 <h3 id="lsof">lsof</h3>
@@ -299,7 +312,7 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 </code></pre>
 
 <h3 id="_13">代理</h3>
-<pre><code>export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
+<pre><code>export https_proxy=http:# 127.0.0.1:7890 http_proxy=http:# 127.0.0.1:7890 all_proxy=socks5:# 127.0.0.1:7890
 </code></pre>
 
 <h1 id="shell">Shell 语法</h1>
@@ -325,7 +338,7 @@ done
 
 <h3 id="_15">字符串</h3>
 <p>对于格式为<code>drivers/pci/endpoint/built-in.ll</code>类型的字符串，取出endpoint</p>
-<pre><code>arr=(${i//\// })
+<pre><code>arr=(${i# \#  })
 len=${#arr[@]}
 label=&quot;normal-${arr[len - 2]}&quot;
 </code></pre>

@@ -31,6 +31,10 @@ cat /proc/cmdline
 sudo systemctl start docker
 ```
 
+### w
+
+查看当前登录的用户
+
 ### pidof
 
 ```
@@ -68,6 +72,14 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/your/custom/path/
 制表符显示为^I
 ```
 cat -T file.py
+```
+
+### which | whereis
+
+查看软件位置
+
+```
+whereis google-chrome-stable
 ```
 
 ### find
@@ -125,8 +137,16 @@ mktemp -p .
 ln -s /run/media/who/113423 ~/link
 ```
 
+### vim
+
+直接使用vim查看编辑某函数(需要先使用ctags生成tags文件)
+```
+vim -t func_name
+```
+
 ### 在浏览器中查看文件
 
+在服务器中查看文件很不方便，可以使用这一招，通过静态的Web Server来查看:
 ```
 python3 -m http.server 8080
 ```
@@ -168,8 +188,8 @@ fdisk 用来给image文件或者磁盘添加分区
 以更改虚拟机硬盘大小来介绍使用，假设host想要让vm的磁盘增加至100G, 则host使用qemu-img扩大image大小
 
 ```
-qemu-img info ./dick1.img //查看当前磁盘大小
-qemu-img resize ./disk1.img 100G //将磁盘大小设置为100G
+qemu-img info ./dick1.img # 查看当前磁盘大小
+qemu-img resize ./disk1.img 100G # 将磁盘大小设置为100G
 ```
 
 在vm启动后，需要创建新分区来使用新增加的磁盘部分:
@@ -177,31 +197,31 @@ qemu-img resize ./disk1.img 100G //将磁盘大小设置为100G
 ```
 sudo fdisk /dev/vda
 
-//输入n新建一个分区，head offset与end offset使用默认值，占满整个磁盘
+# 输入n新建一个分区，head offset与end offset使用默认值，占满整个磁盘
 
-//输入w 将更改写入磁盘
+# 输入w 将更改写入磁盘
 
-sudo mkfs.ext4 /dev/vda2 格式化刚刚新建的磁盘分区
+sudo mkfs.ext4 /dev/vda2 # 格式化刚刚新建的磁盘分区
 
-mount /dev/vda2 ./mnt 挂载新建分区
+mount /dev/vda2 ./mnt # 挂载新建分区
 ```
 
 ### swap
 
 ```
-swapon -s //检查swap文件是否存在，返回空则不存在
+swapon -s # 检查swap文件是否存在，返回空则不存在
 
-df -hal //查看文件系统，检查空间是否足够创建swap
+df -hal # 查看文件系统，检查空间是否足够创建swap
 
-mkdir /swap //创建一个swap目录
+mkdir /swap # 创建一个swap目录
 
-dd if=/dev/zero of=/tmp/swapfile bs=1024 count=2048000 //创建并允许swap文件
+dd if=/dev/zero of=/tmp/swapfile bs=1024 count=2048000 # 创建并允许swap文件
 
-mkswap -f /tmp/swapfile //格式化swap文件
+mkswap -f /tmp/swapfile # 格式化swap文件
 
-swapon /tmp/swapfile //激活swap
+swapon /tmp/swapfile # 激活swap
 
-/tmp/swapfile swap swap defaults 0 0 //vim 打开 /etc/fstab 添加这一行设置开机自启动
+/tmp/swapfile swap swap defaults 0 0 # vim 打开 /etc/fstab 添加这一行设置开机自启动
 ```
 
 ## 网络
@@ -244,7 +264,7 @@ ping 192.168.16.14
 
 通过curl 安装pip
 ```
-curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3
+curl -sS https:# bootstrap.pypa.io/get-pip.py | sudo python3
 ```
 
 ### lsof
@@ -364,7 +384,7 @@ find ./har -iname "*.h" -o -iname "*.c" | xargs clang-format -style=file -i
 ### 代理
 
 ```
-export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
+export https_proxy=http:# 127.0.0.1:7890 http_proxy=http:# 127.0.0.1:7890 all_proxy=socks5:# 127.0.0.1:7890
 ```
 
 # Shell 语法
@@ -398,7 +418,7 @@ done
 
 对于格式为`drivers/pci/endpoint/built-in.ll`类型的字符串，取出endpoint
 ```
-arr=(${i//\// })
+arr=(${i# \#  })
 len=${#arr[@]}
 label="normal-${arr[len - 2]}"
 ```
