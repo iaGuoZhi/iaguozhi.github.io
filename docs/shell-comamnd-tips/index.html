@@ -127,6 +127,11 @@
 
 <h3 id="tree">tree</h3>
 <p>目录与文件树形显示</p>
+<h3 id="chown">chown</h3>
+<p>将当前目录中所有文件的owner设置为foo:</p>
+<pre><code>sudo chown -R foo ./
+</code></pre>
+
 <h3 id="_5">重定向</h3>
 <p>同时重定位到文件与stdout</p>
 <pre><code>./prog 2&gt;&amp;1 | tee outfile
@@ -139,6 +144,10 @@
 <h3 id="vim">vim</h3>
 <p>直接使用vim查看编辑某函数(需要先使用ctags生成tags文件)</p>
 <pre><code>vim -t func_name
+</code></pre>
+
+<p>vim 在没有sudo打开文件的情况下强制保存没有权限编辑的文件:</p>
+<pre><code>w !sudo tee %
 </code></pre>
 
 <h3 id="_7">在浏览器中查看文件</h3>
@@ -277,6 +286,10 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 
 <p>利用debugfs能够观测到非常多有用的信息, 比如想要kvm 因为mmio缺页下陷的次数:</p>
 <pre><code>cat /sys/kernel/debug/kvm/mmio_exists
+</code></pre>
+
+<p>看内核代码就能够发现，很多打印的打印级别是debug，默认情况下我们是看不到的，如果我们需要在dmesg中看到内核某个文件中的debug print, 需要:</p>
+<pre><code>sudo echo 'file drivers/vhost/vhost.c +p' &gt; /sys/kernel/debug/dynamic_debug/control
 </code></pre>
 
 <h3 id="objdump">objdump</h3>

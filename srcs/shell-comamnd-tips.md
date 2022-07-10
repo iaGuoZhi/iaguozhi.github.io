@@ -123,6 +123,13 @@ mktemp -p .
 
 目录与文件树形显示
 
+### chown
+
+将当前目录中所有文件的owner设置为foo:
+```
+sudo chown -R foo ./
+```
+
 ### 重定向
 
 同时重定位到文件与stdout
@@ -142,6 +149,12 @@ ln -s /run/media/who/113423 ~/link
 直接使用vim查看编辑某函数(需要先使用ctags生成tags文件)
 ```
 vim -t func_name
+```
+
+vim 在没有sudo打开文件的情况下强制保存没有权限编辑的文件:
+
+```
+w !sudo tee %
 ```
 
 ### 在浏览器中查看文件
@@ -330,6 +343,12 @@ sudo mount -t debugfs none /sys/kernel/debug
 利用debugfs能够观测到非常多有用的信息, 比如想要kvm 因为mmio缺页下陷的次数:
 ```
 cat /sys/kernel/debug/kvm/mmio_exists
+```
+
+看内核代码就能够发现，很多打印的打印级别是debug，默认情况下我们是看不到的，如果我们需要在dmesg中看到内核某个文件中的debug print, 需要:
+
+```
+sudo echo 'file drivers/vhost/vhost.c +p' > /sys/kernel/debug/dynamic_debug/control
 ```
 
 ### objdump
