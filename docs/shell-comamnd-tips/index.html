@@ -82,7 +82,11 @@
 
 <h3 id="crontab">crontab</h3>
 <p>定时任务</p>
-<h2 id="_3">文本&amp;文件</h2>
+<h3 id="_3">动态库</h3>
+<pre><code>export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/your/custom/path/
+</code></pre>
+
+<h2 id="_4">文本&amp;文件</h2>
 <h3 id="cat">cat</h3>
 <p>制表符显示为^I</p>
 <pre><code>cat -T file.py
@@ -91,6 +95,15 @@
 <h3 id="find">find</h3>
 <p>找到所有.swp文件并删除</p>
 <pre><code>find . -type f -name &quot;*.swp&quot; -delete
+</code></pre>
+
+<p>裁剪kernel，删除debug信息（在/boot分区快满了时候是很有必要的)</p>
+<pre><code>sudo find /lib/modules/4.15.0iommu-v2+ -name *.ko -exec strip --strip-debug {} +  &amp;&amp; \
+</code></pre>
+
+<h3 id="grep">grep</h3>
+<p>递归替换所有oldtext为newtext</p>
+<pre><code>grep -rl oldtext . | xargs sed -i 's/oldtext/newtext/g'
 </code></pre>
 
 <h3 id="xargs">xargs</h3>
@@ -107,22 +120,22 @@
 
 <h3 id="tree">tree</h3>
 <p>目录与文件树形显示</p>
-<h3 id="_4">重定向</h3>
+<h3 id="_5">重定向</h3>
 <p>同时重定位到文件与stdout</p>
 <pre><code>./prog 2&gt;&amp;1 | tee outfile
 </code></pre>
 
-<h3 id="_5">软链接</h3>
+<h3 id="_6">软链接</h3>
 <pre><code>ln -s /run/media/who/113423 ~/link
 </code></pre>
 
-<h3 id="_6">在浏览器中查看文件</h3>
+<h3 id="_7">在浏览器中查看文件</h3>
 <pre><code>python3 -m http.server 8080
 </code></pre>
 
-<h3 id="_7">使用数字切换位置</h3>
+<h3 id="_8">使用数字切换位置</h3>
 <p>1切换到上一个使用过的位置, 以此类推</p>
-<h2 id="_8">磁盘</h2>
+<h2 id="_9">磁盘</h2>
 <h3 id="du">du</h3>
 <p>查看各个当前各个目录中文件的总大小</p>
 <pre><code>du -sh ./*
@@ -140,7 +153,42 @@ sudo sync
 <pre><code>mount -o loop=/dev/loop0 ./image ./mnt
 </code></pre>
 
-<h2 id="_9">网络</h2>
+<h3 id="fdisk">fdisk</h3>
+<p>fdisk 用来给image文件或者磁盘添加分区</p>
+<p>以更改虚拟机硬盘大小来介绍使用，假设host想要让vm的磁盘增加至100G, 则host使用qemu-img扩大image大小</p>
+<pre><code>qemu-img info ./dick1.img //查看当前磁盘大小
+qemu-img resize ./disk1.img 100G //将磁盘大小设置为100G
+</code></pre>
+
+<p>在vm启动后，需要创建新分区来使用新增加的磁盘部分:</p>
+<pre><code>sudo fdisk /dev/vda
+
+//输入n新建一个分区，head offset与end offset使用默认值，占满整个磁盘
+
+//输入w 将更改写入磁盘
+
+sudo mkfs.ext4 /dev/vda2 格式化刚刚新建的磁盘分区
+
+mount /dev/vda2 ./mnt 挂载新建分区
+</code></pre>
+
+<h3 id="swap">swap</h3>
+<pre><code>swapon -s //检查swap文件是否存在，返回空则不存在
+
+df -hal //查看文件系统，检查空间是否足够创建swap
+
+mkdir /swap //创建一个swap目录
+
+dd if=/dev/zero of=/tmp/swapfile bs=1024 count=2048000 //创建并允许swap文件
+
+mkswap -f /tmp/swapfile //格式化swap文件
+
+swapon /tmp/swapfile //激活swap
+
+/tmp/swapfile swap swap defaults 0 0 //vim 打开 /etc/fstab 添加这一行设置开机自启动
+</code></pre>
+
+<h2 id="_10">网络</h2>
 <h3 id="ssh">ssh</h3>
 <p>反向转发, 用来作跳板机</p>
 <pre><code>ssh -R 8000:localhost:80 user@REMOTE_MACHINE
@@ -194,7 +242,7 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 <pre><code>tcpdump -X -r /tmp/tcpdump.raw host google.com and port http
 </code></pre>
 
-<h2 id="_10">调试</h2>
+<h2 id="_11">调试</h2>
 <h3 id="gdb">gdb</h3>
 <p>gdb 添加参数</p>
 <pre><code>sudo gdb --args ./test --batch=2 --no-indirect
@@ -215,20 +263,22 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 
 <h3 id="objdump">objdump</h3>
 <p>objdump用来分析二进制文件, 比如:</p>
-<pre><code>aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin | awk '{print $0} $3-/ret?/{exit}'
+<pre><code>aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin | less'
 </code></pre>
 
 <h3 id="addr2line">addr2line</h3>
 <p>将二进制文件中的地址转换成代码中的行</p>
 <h3 id="qemu">qemu</h3>
+<p>运行aarch64格式的可执行文件</p>
 <pre><code>qemu-aarch64 bomb
 </code></pre>
 
 <h3 id="readelf">readelf</h3>
 <p>分析elf文件</p>
-<h2 id="_11">其他</h2>
+<h2 id="_12">其他</h2>
 <h3 id="docker">docker</h3>
-<pre><code>docker run -it 14a6 /bin/bash
+<p>使用docker运行Latex环境</p>
+<pre><code>docker run -it --rm -v $(pwd):/paper -w /paper blang/latex /bin/bash
 </code></pre>
 
 <h3 id="ctags">ctags</h3>
@@ -239,12 +289,16 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 <pre><code>clang-format -i -style=./.clang-format ./include/qemu/uri.h
 </code></pre>
 
-<h3 id="_12">代理</h3>
+<p>格式化目录下所有文件:</p>
+<pre><code>find ./har -iname &quot;*.h&quot; -o -iname &quot;*.c&quot; | xargs clang-format -style=file -i
+</code></pre>
+
+<h3 id="_13">代理</h3>
 <pre><code>export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
 </code></pre>
 
 <h1 id="shell">Shell 语法</h1>
-<h3 id="_13">比较</h3>
+<h3 id="_14">比较</h3>
 <pre><code>if [ $drivers_results_num -eq $drivers_sources_num ] &amp;&amp; [ $normal_results_num -eq $normal_results_num ];
 </code></pre>
 
@@ -264,18 +318,18 @@ fi
 done
 </code></pre>
 
-<h3 id="_14">字符串</h3>
+<h3 id="_15">字符串</h3>
 <p>对于格式为<code>drivers/pci/endpoint/built-in.ll</code>类型的字符串，取出endpoint</p>
 <pre><code>arr=(${i//\// })
 len=${#arr[@]}
 label=&quot;normal-${arr[len - 2]}&quot;
 </code></pre>
 
-<h3 id="_15">日期</h3>
+<h3 id="_16">日期</h3>
 <pre><code>mv ~/.vimrc ./backup/vimrc.`date + %F-%T`
 </code></pre>
 
-<h1 id="_16">参考</h1>
+<h1 id="_17">参考</h1>
   </content>
 </article>
 

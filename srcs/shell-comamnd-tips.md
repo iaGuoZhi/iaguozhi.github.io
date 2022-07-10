@@ -55,6 +55,12 @@ lspci -nn
 
 定时任务
 
+### 动态库
+
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/your/custom/path/
+```
+
 ## 文本&文件
 
 ### cat
@@ -69,6 +75,18 @@ cat -T file.py
 找到所有.swp文件并删除
 ```
 find . -type f -name "*.swp" -delete
+```
+
+裁剪kernel，删除debug信息（在/boot分区快满了时候是很有必要的)
+```
+sudo find /lib/modules/4.15.0iommu-v2+ -name *.ko -exec strip --strip-debug {} +  && \
+```
+
+### grep
+
+递归替换所有oldtext为newtext
+```
+grep -rl oldtext . | xargs sed -i 's/oldtext/newtext/g'
 ```
 
 ### xargs
@@ -138,8 +156,52 @@ sudo sync
 查看所有的磁盘
 
 ### mount
+
 ```
 mount -o loop=/dev/loop0 ./image ./mnt
+```
+
+### fdisk
+
+fdisk 用来给image文件或者磁盘添加分区
+
+以更改虚拟机硬盘大小来介绍使用，假设host想要让vm的磁盘增加至100G, 则host使用qemu-img扩大image大小
+
+```
+qemu-img info ./dick1.img //查看当前磁盘大小
+qemu-img resize ./disk1.img 100G //将磁盘大小设置为100G
+```
+
+在vm启动后，需要创建新分区来使用新增加的磁盘部分:
+
+```
+sudo fdisk /dev/vda
+
+//输入n新建一个分区，head offset与end offset使用默认值，占满整个磁盘
+
+//输入w 将更改写入磁盘
+
+sudo mkfs.ext4 /dev/vda2 格式化刚刚新建的磁盘分区
+
+mount /dev/vda2 ./mnt 挂载新建分区
+```
+
+### swap
+
+```
+swapon -s //检查swap文件是否存在，返回空则不存在
+
+df -hal //查看文件系统，检查空间是否足够创建swap
+
+mkdir /swap //创建一个swap目录
+
+dd if=/dev/zero of=/tmp/swapfile bs=1024 count=2048000 //创建并允许swap文件
+
+mkswap -f /tmp/swapfile //格式化swap文件
+
+swapon /tmp/swapfile //激活swap
+
+/tmp/swapfile swap swap defaults 0 0 //vim 打开 /etc/fstab 添加这一行设置开机自启动
 ```
 
 ## 网络
@@ -248,7 +310,7 @@ cat /sys/kernel/debug/kvm/mmio_exists
 objdump用来分析二进制文件, 比如:
 
 ```
-aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin | awk '{print $0} $3-/ret?/{exit}'
+aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin | less'
 ```
 
 ### addr2line
@@ -257,6 +319,7 @@ aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin |
 
 ### qemu
 
+运行aarch64格式的可执行文件
 ```
 qemu-aarch64 bomb
 ```
@@ -269,8 +332,9 @@ qemu-aarch64 bomb
 
 ### docker
 
+使用docker运行Latex环境
 ```
-docker run -it 14a6 /bin/bash
+docker run -it --rm -v $(pwd):/paper -w /paper blang/latex /bin/bash
 ```
 
 ### ctags
@@ -283,6 +347,11 @@ ctags -R .
 
 ```
 clang-format -i -style=./.clang-format ./include/qemu/uri.h
+```
+
+格式化目录下所有文件:
+```
+find ./har -iname "*.h" -o -iname "*.c" | xargs clang-format -style=file -i
 ```
 
 ### 代理
