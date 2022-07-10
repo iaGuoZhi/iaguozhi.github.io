@@ -240,6 +240,13 @@ dhclient eth0
 ping 192.168.16.14
 ```
 
+### curl
+
+通过curl 安装pip
+```
+curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3
+```
+
 ### lsof
 
 列出正在使用某个开放端口的进程
