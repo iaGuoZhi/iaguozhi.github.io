@@ -279,6 +279,11 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 <pre><code>sudo echo &quot;7&quot; &gt; /proc/sys/kernel/printk
 </code></pre>
 
+<h3 id="sysfs">sysfs</h3>
+<p>pci设备与驱动绑定:</p>
+<pre><code>echo 0000:00:19.0 &gt; /sys/bus/pci/drivers/foo/bind
+</code></pre>
+
 <h3 id="debugfs">debugfs</h3>
 <p>挂载debugfs</p>
 <pre><code>sudo mount -t debugfs none /sys/kernel/debug
