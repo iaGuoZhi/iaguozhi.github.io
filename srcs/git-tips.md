@@ -87,6 +87,14 @@ git rebase -i --autosquash master
 git rebase --signoff HEAD~4
 ```
 
+### revert
+
+更加安全的删除某个commit, 目标commit仍存在，只是新增加一个revert commit删除目标commit添加的代码:
+
+```
+git revert SHA1
+```
+
 ### stash
 
 贮藏脏工作区的修改
@@ -183,6 +191,14 @@ git send-email --identity=linux ***.patch
 一个内核大佬们写的工具，能够帮助自动整理并发送patch（自动化patch以及cover letter生成，patch的版本管理，邮件管理)，发送patch只需要一个命令即可，非常方便:
 
 https://github.com/stefanha/git-publish
+
+### apply
+
+合并邮箱中的patch:
+
+```
+git apply xxx.patch
+```
 
 ## 与 Vim 相关
 

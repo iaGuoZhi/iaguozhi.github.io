@@ -104,6 +104,11 @@
 <pre><code>git rebase --signoff HEAD~4
 </code></pre>
 
+<h3 id="revert">revert</h3>
+<p>更加安全的删除某个commit, 目标commit仍存在，只是新增加一个revert commit删除目标commit添加的代码:</p>
+<pre><code>git revert SHA1
+</code></pre>
+
 <h3 id="stash">stash</h3>
 <p>贮藏脏工作区的修改</p>
 <pre><code>git stash
@@ -172,6 +177,11 @@ git send-email --identity=linux ***.patch
 <h3 id="publish">publish</h3>
 <p>一个内核大佬们写的工具，能够帮助自动整理并发送patch（自动化patch以及cover letter生成，patch的版本管理，邮件管理)，发送patch只需要一个命令即可，非常方便:</p>
 <p><a href="https://github.com/stefanha/git-publish">https://github.com/stefanha/git-publish</a></p>
+<h3 id="apply">apply</h3>
+<p>合并邮箱中的patch:</p>
+<pre><code>git apply xxx.patch
+</code></pre>
+
 <h2 id="vim">与 Vim 相关</h2>
 <h3 id="vim-fugitive">vim-fugitive</h3>
 <p>通过Gdiffsplit和diffput在vim中添加修改</p>
