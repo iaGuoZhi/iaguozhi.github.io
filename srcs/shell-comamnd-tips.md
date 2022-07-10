@@ -8,6 +8,23 @@ legacy_url: yes
 
 ## 系统
 
+### uname
+
+查看内核版本
+```
+uname -a 
+```
+
+### screenfetch
+
+展示重要的系统信息，有一个发行版的ascii logo
+
+### proc
+
+查看启动参数
+```
+cat /proc/cmdline
+```
 ### systemctl
 
 ```
@@ -34,6 +51,9 @@ pidstat -u | sort -nr -k 4 | head -5
 lspci -nn
 ```
 
+### crontab
+
+定时任务
 
 ## 文本&文件
 
@@ -43,6 +63,7 @@ lspci -nn
 ```
 cat -T file.py
 ```
+
 ### find
 
 找到所有.swp文件并删除
@@ -57,17 +78,44 @@ find . -type f -name "*.swp" -delete
 cat args.txt | xargs -n 1 ./exec.sh
 ```
 
+### uniq
+
+过滤文件的相同行
+
+### mktemp
+
+在当前目录下创建一个临时文件:
+```
+mktemp -p .
+```
+
 ### tree
+
+目录与文件树形显示
 
 ### 重定向
 
+同时重定位到文件与stdout
+
+```
+./prog 2>&1 | tee outfile
+```
+
 ### 软链接
+
+```
+ln -s /run/media/who/113423 ~/link
+```
 
 ### 在浏览器中查看文件
 
 ```
 python3 -m http.server 8080
 ```
+
+### 使用数字切换位置
+
+1切换到上一个使用过的位置, 以此类推
 
 ## 磁盘
 
@@ -86,6 +134,8 @@ sudo sync
 ```
 
 ### lsblk
+
+查看所有的磁盘
 
 ### mount
 ```
@@ -167,8 +217,6 @@ tcpdump -w /tmp/tcpdump.raw -c 50
 tcpdump -X -r /tmp/tcpdump.raw host google.com and port http
 ```
 
-### arp
-
 ## 调试
 
 ### gdb
@@ -190,11 +238,22 @@ sudo echo "7" > /proc/sys/kernel/printk
 sudo mount -t debugfs none /sys/kernel/debug
 ```
 
+利用debugfs能够观测到非常多有用的信息, 比如想要kvm 因为mmio缺页下陷的次数:
+```
+cat /sys/kernel/debug/kvm/mmio_exists
+```
+
 ### objdump
+
+objdump用来分析二进制文件, 比如:
 
 ```
 aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin | awk '{print $0} $3-/ret?/{exit}'
 ```
+
+### addr2line
+
+将二进制文件中的地址转换成代码中的行
 
 ### qemu
 
@@ -203,6 +262,8 @@ qemu-aarch64 bomb
 ```
 
 ### readelf
+
+分析elf文件
 
 ## 其他
 
@@ -224,7 +285,19 @@ ctags -R .
 clang-format -i -style=./.clang-format ./include/qemu/uri.h
 ```
 
+### 代理
+
+```
+export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
+```
+
 # Shell 语法
+
+### 比较
+
+```
+if [ $drivers_results_num -eq $drivers_sources_num ] && [ $normal_results_num -eq $normal_results_num ];
+```
 
 ### if
 
@@ -237,7 +310,27 @@ fi
 ```
 ### for
 
+统计每个目录中的文件数量:
 ```
-for num in {1..5}; do qemu-aarch64 bomb-${num} < ans-${num}.txt; done
+for d in `find . -type d`;
+    do
+    echo `find $d -type t | wc -l ` files in $d;
+done
 ```
+
+### 字符串
+
+对于格式为`drivers/pci/endpoint/built-in.ll`类型的字符串，取出endpoint
+```
+arr=(${i//\// })
+len=${#arr[@]}
+label="normal-${arr[len - 2]}"
+```
+
+### 日期
+
+```
+mv ~/.vimrc ./backup/vimrc.`date + %F-%T`
+```
+
 # 参考

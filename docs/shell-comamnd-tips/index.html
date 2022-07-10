@@ -50,6 +50,18 @@
   <content>
     <h1 id="_1">命令</h1>
 <h2 id="_2">系统</h2>
+<h3 id="uname">uname</h3>
+<p>查看内核版本</p>
+<pre><code>uname -a 
+</code></pre>
+
+<h3 id="screenfetch">screenfetch</h3>
+<p>展示重要的系统信息，有一个发行版的ascii logo</p>
+<h3 id="proc">proc</h3>
+<p>查看启动参数</p>
+<pre><code>cat /proc/cmdline
+</code></pre>
+
 <h3 id="systemctl">systemctl</h3>
 <pre><code>sudo systemctl start docker
 </code></pre>
@@ -68,6 +80,8 @@
 <pre><code>lspci -nn
 </code></pre>
 
+<h3 id="crontab">crontab</h3>
+<p>定时任务</p>
 <h2 id="_3">文本&amp;文件</h2>
 <h3 id="cat">cat</h3>
 <p>制表符显示为^I</p>
@@ -84,14 +98,31 @@
 <pre><code>cat args.txt | xargs -n 1 ./exec.sh
 </code></pre>
 
+<h3 id="uniq">uniq</h3>
+<p>过滤文件的相同行</p>
+<h3 id="mktemp">mktemp</h3>
+<p>在当前目录下创建一个临时文件:</p>
+<pre><code>mktemp -p .
+</code></pre>
+
 <h3 id="tree">tree</h3>
+<p>目录与文件树形显示</p>
 <h3 id="_4">重定向</h3>
+<p>同时重定位到文件与stdout</p>
+<pre><code>./prog 2&gt;&amp;1 | tee outfile
+</code></pre>
+
 <h3 id="_5">软链接</h3>
+<pre><code>ln -s /run/media/who/113423 ~/link
+</code></pre>
+
 <h3 id="_6">在浏览器中查看文件</h3>
 <pre><code>python3 -m http.server 8080
 </code></pre>
 
-<h2 id="_7">磁盘</h2>
+<h3 id="_7">使用数字切换位置</h3>
+<p>1切换到上一个使用过的位置, 以此类推</p>
+<h2 id="_8">磁盘</h2>
 <h3 id="du">du</h3>
 <p>查看各个当前各个目录中文件的总大小</p>
 <pre><code>du -sh ./*
@@ -104,11 +135,12 @@ sudo sync
 </code></pre>
 
 <h3 id="lsblk">lsblk</h3>
+<p>查看所有的磁盘</p>
 <h3 id="mount">mount</h3>
 <pre><code>mount -o loop=/dev/loop0 ./image ./mnt
 </code></pre>
 
-<h2 id="_8">网络</h2>
+<h2 id="_9">网络</h2>
 <h3 id="ssh">ssh</h3>
 <p>反向转发, 用来作跳板机</p>
 <pre><code>ssh -R 8000:localhost:80 user@REMOTE_MACHINE
@@ -162,8 +194,7 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 <pre><code>tcpdump -X -r /tmp/tcpdump.raw host google.com and port http
 </code></pre>
 
-<h3 id="arp">arp</h3>
-<h2 id="_9">调试</h2>
+<h2 id="_10">调试</h2>
 <h3 id="gdb">gdb</h3>
 <p>gdb 添加参数</p>
 <pre><code>sudo gdb --args ./test --batch=2 --no-indirect
@@ -178,16 +209,24 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 <pre><code>sudo mount -t debugfs none /sys/kernel/debug
 </code></pre>
 
+<p>利用debugfs能够观测到非常多有用的信息, 比如想要kvm 因为mmio缺页下陷的次数:</p>
+<pre><code>cat /sys/kernel/debug/kvm/mmio_exists
+</code></pre>
+
 <h3 id="objdump">objdump</h3>
+<p>objdump用来分析二进制文件, 比如:</p>
 <pre><code>aarch64-linux-gnu-objdump -S --start-address=0x401524 ./user/build/vmm/vmm.bin | awk '{print $0} $3-/ret?/{exit}'
 </code></pre>
 
+<h3 id="addr2line">addr2line</h3>
+<p>将二进制文件中的地址转换成代码中的行</p>
 <h3 id="qemu">qemu</h3>
 <pre><code>qemu-aarch64 bomb
 </code></pre>
 
 <h3 id="readelf">readelf</h3>
-<h2 id="_10">其他</h2>
+<p>分析elf文件</p>
+<h2 id="_11">其他</h2>
 <h3 id="docker">docker</h3>
 <pre><code>docker run -it 14a6 /bin/bash
 </code></pre>
@@ -200,7 +239,15 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 <pre><code>clang-format -i -style=./.clang-format ./include/qemu/uri.h
 </code></pre>
 
+<h3 id="_12">代理</h3>
+<pre><code>export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
+</code></pre>
+
 <h1 id="shell">Shell 语法</h1>
+<h3 id="_13">比较</h3>
+<pre><code>if [ $drivers_results_num -eq $drivers_sources_num ] &amp;&amp; [ $normal_results_num -eq $normal_results_num ];
+</code></pre>
+
 <h3 id="if">if</h3>
 <pre><code>if [ -e $path ]; then
     echo &quot;File exists&quot;;
@@ -210,10 +257,25 @@ fi
 </code></pre>
 
 <h3 id="for">for</h3>
-<pre><code>for num in {1..5}; do qemu-aarch64 bomb-${num} &lt; ans-${num}.txt; done
+<p>统计每个目录中的文件数量:</p>
+<pre><code>for d in `find . -type d`;
+    do
+    echo `find $d -type t | wc -l ` files in $d;
+done
 </code></pre>
 
-<h1 id="_11">参考</h1>
+<h3 id="_14">字符串</h3>
+<p>对于格式为<code>drivers/pci/endpoint/built-in.ll</code>类型的字符串，取出endpoint</p>
+<pre><code>arr=(${i//\// })
+len=${#arr[@]}
+label=&quot;normal-${arr[len - 2]}&quot;
+</code></pre>
+
+<h3 id="_15">日期</h3>
+<pre><code>mv ~/.vimrc ./backup/vimrc.`date + %F-%T`
+</code></pre>
+
+<h1 id="_16">参考</h1>
   </content>
 </article>
 
