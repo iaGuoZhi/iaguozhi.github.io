@@ -383,6 +383,12 @@ qemu-aarch64 bomb
 
 分析elf文件
 
+## Fun
+
+### cmatrix
+
+在终端下matrix中的字符雨
+
 ## 其他
 
 ### docker
