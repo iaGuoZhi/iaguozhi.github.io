@@ -143,7 +143,18 @@ mount /dev/vda /mnt
 
 ## netdev
 
-通过这个参数可以为虚拟机添加网络支持，但是启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考[dhcp](https://blog.csdn.net/lee244868149/article/details/49249887)。
+通过这个参数可以为虚拟机添加网络支持。
+
+上面使用到的命令
+```
+-netdev user,id=net0 -device virtio-net-pci,netdev=net0
+```
+是使用qemu作为virtio-net的backend，如果想使用vhost则需要使用tap设备:
+```
+-netdev tap,id=br0,vhost=on,script=no,downscript=no, -device virtio-net-pci,netdev=br0
+```
+
+启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考[dhcp](https://blog.csdn.net/lee244868149/article/details/49249887)。
 
 ## chroot
 

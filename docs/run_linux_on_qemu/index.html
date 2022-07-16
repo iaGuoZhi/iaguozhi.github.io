@@ -153,7 +153,16 @@ mkfs.ext4 virtio_blk.img
 
 <p>来挂载这个设备。</p>
 <h2 id="netdev">netdev</h2>
-<p>通过这个参数可以为虚拟机添加网络支持，但是启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考<a href="https://blog.csdn.net/lee244868149/article/details/49249887">dhcp</a>。</p>
+<p>通过这个参数可以为虚拟机添加网络支持。</p>
+<p>上面使用到的命令</p>
+<pre><code>-netdev user,id=net0 -device virtio-net-pci,netdev=net0
+</code></pre>
+
+<p>是使用qemu作为virtio-net的backend，如果想使用vhost则需要使用tap设备:</p>
+<pre><code>-netdev tap,id=br0,vhost=on,script=no,downscript=no, -device virtio-net-pci,netdev=br0
+</code></pre>
+
+<p>启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考<a href="https://blog.csdn.net/lee244868149/article/details/49249887">dhcp</a>。</p>
 <h2 id="chroot">chroot</h2>
 <p>有些时候，我们可能觉得initrd中提供的命令不够，此时我们可以使用主流Linux发行版制作的rootfs来作为我们最后的rootfs(此时甚至可以在kernel中使用Ubuntu的apt安装程序):</p>
 <p>以Ubuntu为例，首先下载Ubuntu 20.04的<a href="http://cdimage.ubuntu.com/ubuntu-base/releases/20.04/release/ubuntu-base-20.04.1-base-amd64.tar.gz">rootfs</a> 文件，
