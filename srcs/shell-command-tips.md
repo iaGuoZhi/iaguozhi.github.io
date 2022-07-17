@@ -15,7 +15,7 @@ legacy_url: yes
 uname -a 
 ```
 
-### screenfetch
+### neofetch
 
 展示重要的系统信息，有一个发行版的ascii logo
 
