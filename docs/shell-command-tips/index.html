@@ -77,6 +77,11 @@
 <pre><code>pidstat -u | sort -nr -k 4 | head -5
 </code></pre>
 
+<h3 id="lshw">lshw</h3>
+<p>查看内存的具体参数(各级Cache 大小，NUMA结构):</p>
+<pre><code>sudo lshw -C memory
+</code></pre>
+
 <h3 id="lspci">lspci</h3>
 <p>显示所有PCI设备的设备名字(出厂型号)</p>
 <pre><code>lspci -nn

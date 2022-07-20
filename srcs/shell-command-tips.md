@@ -48,6 +48,13 @@ pidof clash
 pidstat -u | sort -nr -k 4 | head -5
 ```
 
+### lshw
+
+查看内存的具体参数(各级Cache 大小，NUMA结构):
+```
+sudo lshw -C memory
+```
+
 ### lspci
 
 显示所有PCI设备的设备名字(出厂型号)
