@@ -72,6 +72,21 @@ lspci -nn
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/your/custom/path/
 ```
 
+### insmod
+
+安装kernel module
+
+### modprobe
+
+查找kernel module
+```
+modprobe bridge
+```
+
+### make modules\_install
+
+安装所有编译好的kernel module
+
 ## 文本&文件
 
 ### cat
@@ -258,6 +273,16 @@ ssh -R 8000:localhost:80 user@REMOTE_MACHINE
 
 拷贝本地的public key到远程机器，之后登录不再需要输入密码
 
+### ip
+
+ip是网络全家桶指令，很多操作都能够用ip完成
+
+使用ip给虚拟机起网桥:
+
+```
+sudo ip l set virbr0 up
+```
+
 ### ifconfig
 
 查看网络设备以及ip
@@ -397,6 +422,13 @@ qemu-aarch64 bomb
 在终端下matrix中的字符雨
 
 ## 其他
+
+### tldr
+
+使用例子来查看某一指令的具体用法，比如:
+```
+tldr ip
+```
 
 ### docker
 

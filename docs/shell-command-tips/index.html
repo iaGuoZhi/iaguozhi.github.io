@@ -93,6 +93,15 @@
 <pre><code>export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/your/custom/path/
 </code></pre>
 
+<h3 id="insmod">insmod</h3>
+<p>安装kernel module</p>
+<h3 id="modprobe">modprobe</h3>
+<p>查找kernel module</p>
+<pre><code>modprobe bridge
+</code></pre>
+
+<h3 id="make-modules_install">make modules_install</h3>
+<p>安装所有编译好的kernel module</p>
 <h2 id="_4">文本&amp;文件</h2>
 <h3 id="cat">cat</h3>
 <p>制表符显示为^I</p>
@@ -224,6 +233,12 @@ swapon /tmp/swapfile # 激活swap
 <p>之后用户访问远程主机的8000端口时，将重定位到本地机器的80端口</p>
 <h3 id="ssh-copy-id">ssh-copy-id</h3>
 <p>拷贝本地的public key到远程机器，之后登录不再需要输入密码</p>
+<h3 id="ip">ip</h3>
+<p>ip是网络全家桶指令，很多操作都能够用ip完成</p>
+<p>使用ip给虚拟机起网桥:</p>
+<pre><code>sudo ip l set virbr0 up
+</code></pre>
+
 <h3 id="ifconfig">ifconfig</h3>
 <p>查看网络设备以及ip</p>
 <pre><code>ifconfig -a
@@ -250,7 +265,7 @@ sudo ifconfig eth0 up
 <pre><code>sudo lsof -i -P -n | grep 7890
 </code></pre>
 
-<h3 id="ip">ip</h3>
+<h3 id="ip_1">ip</h3>
 <p>ip用来起网桥，网桥用于两个独立的网络中传输数据</p>
 <pre><code>ip link add br0 type bridge
 ip link set dev eth1 master br0
@@ -320,6 +335,11 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 <h3 id="cmatrix">cmatrix</h3>
 <p>在终端下matrix中的字符雨</p>
 <h2 id="_12">其他</h2>
+<h3 id="tldr">tldr</h3>
+<p>使用例子来查看某一指令的具体用法，比如:</p>
+<pre><code>tldr ip
+</code></pre>
+
 <h3 id="docker">docker</h3>
 <p>使用docker运行Latex环境</p>
 <pre><code>docker run -it --rm -v $(pwd):/paper -w /paper blang/latex /bin/bash
