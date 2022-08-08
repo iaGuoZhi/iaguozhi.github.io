@@ -8,7 +8,7 @@
   <meta name="author" content="iaGuoZhi">
   <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
 
-  <title>Blog - iaGuoZhi</title>
+  <title>使用VFIO给虚拟机提供直通设备的步骤 - iaGuoZhi</title>
 
   <!-- RSS -->
   <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
@@ -23,129 +23,74 @@
   <link href="/static/pygments.css" rel="stylesheet">
 
   
+<meta property="og:title" content="使用VFIO给虚拟机提供直通设备的步骤 - iaGuoZhi">
+<meta property="twitter:title" content="使用VFIO给虚拟机提供直通设备的步骤 - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/vm-vfio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
 </head>
 <body>
   <div class="container">
 
     
-<nav>
-  <h1>Blog posts & articles by iaGuoZhi <a class="rss" href="/feed.xml" target="_blank" title="RSS feed"><i class="fas fa-rss"></i></a></h1>
-  <dl class="posts-list">
-  
-    <a href="/vm-vfio">
-      <dt>使用VFIO给虚拟机提供直通设备的步骤</dt>
-      <dd>
-        <time>August 08, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/huge-page">
-      <dt>hugepage 论文阅读</dt>
-      <dd>
-        <time>July 28, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/shell-command-tips">
-      <dt>常用的命令行技巧</dt>
-      <dd>
-        <time>July 09, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/run_linux_on_qemu">
-      <dt>通过Qemu来运行Linux的多种方法</dt>
-      <dd>
-        <time>July 08, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/git-tips">
-      <dt>实用的Git技巧</dt>
-      <dd>
-        <time>July 07, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/Change-vm-kernel-by-qemu-nbd">
-      <dt>记录一次将虚拟机kernel写坏之后的修复过程</dt>
-      <dd>
-        <time>June 04, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/virtio11-new-features">
-      <dt>What's New in VIRTIO 1.1</dt>
-      <dd>
-        <time>May 28, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/xv6_net">
-      <dt>Xv6 net lab</dt>
-      <dd>
-        <time>May 12, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/xv6_fs">
-      <dt>Xv6 fs lab</dt>
-      <dd>
-        <time>May 12, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/how-to-use-sva-in-2022">
-      <dt>如何使用sva特性(2022)</dt>
-      <dd>
-        <time>May 06, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/qemu_patch">
-      <dt>给QEMU发送patch的步骤</dt>
-      <dd>
-        <time>May 03, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/xv6_lazy">
-      <dt>Xv6 lazy lab</dt>
-      <dd>
-        <time>April 13, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/virtio-networking">
-      <dt>DPDK中的VIRTIO</dt>
-      <dd>
-        <time>April 06, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/xv6_traps">
-      <dt>Xv6 traps lab</dt>
-      <dd>
-        <time>April 01, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/xv6_pgtbl">
-      <dt>Xv6 pgtbl lab</dt>
-      <dd>
-        <time>March 28, 2022</time>
-      </dd>
-    </a>
-  
-    <a href="/xv6_gdb_setup">
-      <dt>Xv6配置gdb</dt>
-      <dd>
-        <time>March 26, 2022</time>
-      </dd>
-    </a>
-  
-  </dl>
-</nav>
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on August 08, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>使用VFIO给虚拟机提供直通设备的步骤</h1>
+  <content>
+    <h2 id="vfio">VFIO 介绍</h2>
+<p>VFIO 让虚拟机直接使用每个PCI设备，以达到接近native的IO性能。</p>
+<p>使用VFIO的场景如下：</p>
+<ul>
+<li>提升性能(如直通网卡和显卡）</li>
+<li>减少延迟(避免数据丢失或者丢帧）</li>
+<li>直接使用bare-metal上设备的驱动</li>
+</ul>
+<h2 id="_1">使用步骤</h2>
+<h3 id="_2">硬件要求</h3>
+<ol>
+<li>CPU和主板均支持VT-d</li>
+<li>IO设备（如NVMe）支持SRIOV</li>
+</ol>
+<h3 id="unbind-pci">unbind PCI设备</h3>
+<p>以NVMe设备为例</p>
+<pre><code># 加载vfio-pci模块
+modprobe vfio-pci
+# 查询NVMe设备的(domain,slot,bus,function)和(vendor id, device id )
+lspci -D -nn | grep NVM
+</code></pre>
+<p>lspci结果如下:</p>
+<pre><code>0000:5e:00.0 Non-Volatile memory controller [0108]: Intel Corporation NVMe Datacenter SSD [Optane] [8086:2701]
+</code></pre>
+<p>然后执行</p>
+<pre><code># 将NVMe设备从原来的IOMMU group中unbind
+sudo bash -c 'echo 0000:5e:00.0 &gt; /sys/bus/pci/devices/0000:5e:00.0/driver/unbind'
+# 将NVMe设备bind到vfio-pci下
+sudo bash -c 'echo 8086 2701 &gt; /sys/bus/pci/drivers/vfio-pci/new_id'
+</code></pre>
+<h3 id="_3">启动虚拟机</h3>
+<pre><code>qemu-system-x86_64 \
+    -kernel ./bzImage \
+    -initrd ./initramfs.cpio.gz \
+    -nographic \
+    -append &quot;console=ttyS0 nokaslr&quot; \
+    -enable-kvm \
+    -device vfio-pci,host=0000:5e:00.0
+</code></pre>
+<h2 id="_4">参考</h2>
+<p><a href="https://www.cnblogs.com/bhlsheji/p/5317002.html">https://www.cnblogs.com/bhlsheji/p/5317002.html</a></p>
+  </content>
+</article>
 
 
     <footer>

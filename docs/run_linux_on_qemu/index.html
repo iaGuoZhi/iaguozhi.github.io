@@ -64,7 +64,6 @@
 --location 'http://archive.ubuntu.com/ubuntu/dists/bionic/main/installer-amd64/' \
 --extra-args &quot;console=tty0 console=ttyS0,115200n8&quot;
 </code></pre>
-
 <p>通过libvirt启动的虚拟机，在启动成功之后可以通过virsh cli进行管理.
 比如:</p>
 <pre><code>virsh list  // 查看所有虚拟机
@@ -75,7 +74,6 @@ virsh dumpxml $domain &gt; a.xml  // dump出虚拟机的xml文件
 virsh define a.xml      // 修改虚拟机参数后，定义虚拟机
 virsh start $domain --console    // 启动虚拟机
 </code></pre>
-
 <p>其中dumpxml格外有用，能够帮助我们更改虚拟机的配置再启动。</p>
 <p>比如在下面这段xml文件中，如果没有<code>&lt;driver name="qemu"/&gt;</code>，虚拟机使用的virtio-net backend就是默认的运行在内核态的vhost，加入了之后就是Qemu。</p>
 <pre><code>&lt;devices&gt;
@@ -90,7 +88,6 @@ virsh start $domain --console    // 启动虚拟机
       &lt;/interface&gt;                                                                                     
 &lt;/devices&gt;
 </code></pre>
-
 <h2 id="qemu-system-x86_64">通过qemu-system-x86_64</h2>
 <p>首先下载好虚拟机操作系统的iso文件, 这里使用archlinux的iso文件:</p>
 <pre><code>./qemu/build/qemu-system-x86_64 \
@@ -101,7 +98,6 @@ virsh start $domain --console    // 启动虚拟机
     -smp 8 \
     -nographic \
 </code></pre>
-
 <h2 id="_2">启动之后</h2>
 <p>启动之后建议进行几个设置:</p>
 <ol>
@@ -114,7 +110,6 @@ virsh start $domain --console    // 启动虚拟机
 <pre><code>GRUB_TIMEOUT_STYLE=menu
 GRUB_TIMEOUT=10
 </code></pre>
-
 <p>修改之后需要通过<code>sudo update-grub</code>更新grub。</p>
 <h1 id="_3">面向嵌入式</h1>
 <p>嵌入式环境比较复杂，需要自己制作intrd(initramfs, 是虚拟机的rootfs，在上面用Ubuntu或者Arch发行版启动虚拟机中，发行版已经准备了非常大的rootfs文件，因此不用自己制作)，并用Linux源码编译kernel.</p>
@@ -128,7 +123,6 @@ GRUB_TIMEOUT=10
     -drive if=none,id=image,file=virtio_blk.img,format=raw \
     -netdev user,id=net0 -device virtio-net-pci,netdev=net0
 </code></pre>
-
 <p>接着结合上面的命令逐个参数进行介绍:</p>
 <h2 id="bzimage">bzImage</h2>
 <p>在kernel源码中使用make命令即可编程出来</p>
@@ -146,22 +140,18 @@ GRUB_TIMEOUT=10
 <pre><code>dd if=/dev/zero of=virtio_blk.img bs=1M count=1024
 mkfs.ext4 virtio_blk.img
 </code></pre>
-
 <p>kernel启动之后，可以通过<code>blkid</code>指令看到这个block设备，通常是<code>/dev/vda</code>, 此时可以使用</p>
 <pre><code>mount /dev/vda /mnt
 </code></pre>
-
 <p>来挂载这个设备。</p>
 <h2 id="netdev">netdev</h2>
 <p>通过这个参数可以为虚拟机添加网络支持。</p>
 <p>上面使用到的命令</p>
 <pre><code>-netdev user,id=net0 -device virtio-net-pci,netdev=net0
 </code></pre>
-
 <p>是使用qemu作为virtio-net的backend，如果想使用vhost则需要使用tap设备:</p>
 <pre><code>-netdev tap,id=br0,vhost=on,script=no,downscript=no, -device virtio-net-pci,netdev=br0
 </code></pre>
-
 <p>启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考<a href="https://blog.csdn.net/lee244868149/article/details/49249887">dhcp</a>。</p>
 <h2 id="chroot">chroot</h2>
 <p>有些时候，我们可能觉得initrd中提供的命令不够，此时我们可以使用主流Linux发行版制作的rootfs来作为我们最后的rootfs(此时甚至可以在kernel中使用Ubuntu的apt安装程序):</p>
@@ -176,7 +166,6 @@ sudo sync
 sudo umount tmpfs
 rmdir tmpfs
 </code></pre>
-
 <p>如此在mount <code>/dev/vda</code>之后能够使用<code>chroot</code>来更改root文件夹位置, 之后就能够直接使用Ubuntu 20.04提供的用户态程序。</p>
 <h2 id="gdb">gdb</h2>
 <p>直接使用一个bzImage来启动Linux有一个好处，就是可以使用<a href="https://www.kernel.org/doc/Documentation/dev-tools/gdb-kernel-debugging.rst">gdb</a>来对内核进行调试，此时需要使用<code>nokaslr</code>启动参数关闭kaslr。</p>
@@ -196,7 +185,6 @@ echo -e &quot;\nBoot took $(cut -d' ' -f1 /proc/uptime) seconds\n&quot;
 
 exec /bin/sh
 </code></pre>
-
 <p>就在启动过程中，开启了网络并动态获取了ip。</p>
 <h1 id="_5">参考</h1>
 <p><a href="https://graspingtech.com/creating-virtual-machine-virt-install/">https://graspingtech.com/creating-virtual-machine-virt-install/</a></p>
