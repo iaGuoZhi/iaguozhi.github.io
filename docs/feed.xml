@@ -16,6 +16,13 @@
   </item>
   
   <item>
+    <title>Linux中设备要求pin内存的情况分析</title>
+    <link>https://iaguozhi.github.io/pin-memory</link>
+    <guid>https://iaguozhi.github.io/pin-memory</guid>
+    <pubDate>Mon, 08 Aug 2022 12:00:00 Z</pubDate>
+  </item>
+  
+  <item>
     <title>hugepage 论文阅读</title>
     <link>https://iaguozhi.github.io/huge-page</link>
     <guid>https://iaguozhi.github.io/huge-page</guid>
