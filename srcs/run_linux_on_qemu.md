@@ -124,6 +124,15 @@ initramfs可以使用几种方式来制作:
 * busybox, [stdrc](https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/)中已经有非常详细的介绍。
 * buildroot, 比起busybox更加现代。
 
+如果不想制作initrd文件，可以使用发行版提供的image来启动虚拟机:
+```
+qemu-system-x86_64 -cpu host -enable-kvm -smp 4 \
+    -m 1G \
+    -kernel ~/repos/linux/arch/x86/boot/bzImage \
+    -append "console=ttyS0 root=/dev/sda1" \
+    -hda ./debian.img \
+```
+
 ## block image
 
 用户在initramfs中作的修改并不会被保存下来，如果需要让应用程序能够持久化保存数据，可以添加一个block image。

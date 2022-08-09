@@ -134,6 +134,13 @@ GRUB_TIMEOUT=10
 <li>busybox, <a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">stdrc</a>中已经有非常详细的介绍。</li>
 <li>buildroot, 比起busybox更加现代。</li>
 </ul>
+<p>如果不想制作initrd文件，可以使用发行版提供的image来启动虚拟机:</p>
+<pre><code>qemu-system-x86_64 -cpu host -enable-kvm -smp 4 \
+    -m 1G \
+    -kernel ~/repos/linux/arch/x86/boot/bzImage \
+    -append &quot;console=ttyS0 root=/dev/sda1&quot; \
+    -hda ./debian.img \
+</code></pre>
 <h2 id="block-image">block image</h2>
 <p>用户在initramfs中作的修改并不会被保存下来，如果需要让应用程序能够持久化保存数据，可以添加一个block image。</p>
 <p>block image 可以通过<code>dd</code>来制作</p>
