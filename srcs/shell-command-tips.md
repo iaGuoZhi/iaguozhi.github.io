@@ -415,6 +415,15 @@ qemu-aarch64 bomb
 
 分析elf文件
 
+### stress
+
+给机器增加指定数量的负载(CPU, 内存或者IO)
+
+将服务器的内存使用350G:
+```
+stress -m 16 --vm-bytes 350G --vm-hang 20 -t 100
+```
+
 ## Fun
 
 ### cmatrix
