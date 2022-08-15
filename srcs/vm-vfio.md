@@ -60,6 +60,16 @@ qemu-system-x86_64 \
     -device vfio-pci,host=0000:5e:00.0
 ```
 
+### 使用完成后，bind到host驱动
+
+```
+sudo bash -c 'echo 8086 2701 > /sys/bus/pci/drivers/vfio-pci/remove_id'
+sudo modprobe -r vfio-pci
+sudo bash -c 'echo -n 0000:5e:00.0 > /sys/bus/pci/drivers/nvme/bind
+```
+
 ## 参考
 
 https://www.cnblogs.com/bhlsheji/p/5317002.html
+
+https://topic.alibabacloud.com/a/linux-drivers-manually-bind-and-unbind_1_16_30158827.html
