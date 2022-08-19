@@ -221,3 +221,5 @@ https://wiki.qemu.org/Hosts/Linux
 https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/
 
 https://blog.csdn.net/lee244868149/article/details/49249887
+
+https://docs.google.com/document/d/1qBcZrrnuU-ogKE2qcP5NFoccioWZAMST_SDfE6FDugk/edit#

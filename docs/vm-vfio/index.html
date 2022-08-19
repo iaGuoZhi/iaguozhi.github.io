@@ -87,7 +87,7 @@ sudo bash -c 'echo 8086 2701 &gt; /sys/bus/pci/drivers/vfio-pci/new_id'
     -enable-kvm \
     -device vfio-pci,host=0000:5e:00.0
 </code></pre>
-<h3 id="bindhost">使用完成后，bind到host驱动</h3>
+<h3 id="bindhost">使用完成后，重新bind到host驱动</h3>
 <pre><code>sudo bash -c 'echo 8086 2701 &gt; /sys/bus/pci/drivers/vfio-pci/remove_id'
 sudo modprobe -r vfio-pci
 sudo bash -c 'echo -n 0000:5e:00.0 &gt; /sys/bus/pci/drivers/nvme/bind
