@@ -9,10 +9,10 @@
 
   
   <item>
-    <title>SR-IOV的使用与测试</title>
-    <link>https://iaguozhi.github.io/sriov</link>
-    <guid>https://iaguozhi.github.io/sriov</guid>
-    <pubDate>Fri, 12 Aug 2022 12:00:00 Z</pubDate>
+    <title>创建Host kernel与Guest的共享内存</title>
+    <link>https://iaguozhi.github.io/shared_memory_between_host_guest</link>
+    <guid>https://iaguozhi.github.io/shared_memory_between_host_guest</guid>
+    <pubDate>Sun, 11 Sep 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>

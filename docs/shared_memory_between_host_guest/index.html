@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>创建Host kernel与Guest的共享内存 - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="创建Host kernel与Guest的共享内存 - iaGuoZhi">
+<meta property="twitter:title" content="创建Host kernel与Guest的共享内存 - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/shared_memory_between_host_guest">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on September 11, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>创建Host kernel与Guest的共享内存</h1>
+  <content>
+    <h2 id="_1">介绍</h2>
+<p>这篇文章会介绍如何在QEMU/KVM 虚拟化中为Guest kernel和Host kernel创建一块shared memory。有了共享内存之后可以做很多用意思的事情，比如共享调度信息，共享IO队列等等。</p>
+<p>首先简要介绍下QEMU/KVM的内存虚拟化：
+在硬件虚拟化中，Guest运行时实际上有两层页表，第一层是将Guest内部的va(gva)翻译成pa(gpa)，第二层是将Guest的pa(gpa)翻译成Host的pa(hpa）。</p>
+<p><img alt="" src="../static/arm_stage2_tr.png" /></p>
+<p>看了上面这个图，我们可能会认为内存虚拟化已经很完备了，但其实我们还需要有另一个地址： hva。这是因为</p>
+<ul>
+<li>Host 不会给 Guest的gpa直接分配hpa，而是为每一个gpa 所在的memory slot分配对应的hva。 在发生stage2 page fault的时候再根据gpa对应的hva属性进行hpa的分配</li>
+<li>有了hva, Host(QEMU)可以走自己的页表访问Guest的内存</li>
+<li>Host(QEMU)能够通过hva和gpa之间的关系管理Guest内存信息</li>
+</ul>
+<p>这里贴出一张LoyenWang制作的图来表示这四种地址的关系：</p>
+<p><img alt="" src="../static/gva_gpa_hva_hpa.png" /></p>
+<p>因此QEMU/KVM中现有的机制允许Host中的QEMU访问Guest的物理内存，也就是说QEMU和Guest是天然共享着内存的。这篇文章将会介绍如何进一步让KVM(也就是Host kernel)和Guest之间共享一块内存，实现这样一套机制很有意义，因为Host中大部分有价值的信息以及代码都是在kernel中的，Host kernel能够利用这块共享内存帮助虚拟机提供更多信息或者做更多的事情。</p>
+<p>我们将让Guest物理内存的8G&lt;-&gt;8G + 1M这1M的内存共享给Host kernel。这需要我们更改QEMU, Host kernel, Guest kernel的代码。代码可以在<a href="https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm">Github</a>上看到。</p>
+<p>下面依次介绍QEMU, Host kernel, Guest kernel的修改：</p>
+<h2 id="qemu">QEMU</h2>
+<p>QEMU会针对每一个memory slot调用<code>kvm_set_user_memory_region</code>，这个函数将调用KVM的ioctl(KVM_SET_USER_MEMORY_REGION)完成每个slot gpa到hva的转化。其具体过程可以看<a href="https://www.cnblogs.com/LoyenWang/p/13943005.html">LoyenWang的文章</a>。在QEMU的<code>kvm_set_user_memory_region</code>这个函数中，我们加入以下代码，当遇到涵盖我们共享内存区间的memory slot时，我们对KVM调用一个我们新添加的ioctl(KVM_REG_SHARED_MEM)，完成后我们能够对这块地址进行检查，看是否KVM在上面写了预期的数据，并更改这些数据，以让虚拟机启动之后进行检查。</p>
+<pre><code>/* SHM layout:
+ * 8G &lt;-&gt; 8G + 1M
+ */
+static __u64 SHM_BASE = 8UL &lt;&lt; 30;
+static __u64 SHM_SIZE = 1UL &lt;&lt; 20;
+static bool has_shm = false;
+
+static int kvm_set_user_memory_region(KVMMemoryListener *kml, KVMSlot *slot, bool new)
+{
+    ---
+    if (mem.guest_phys_addr &lt;= SHM_BASE &amp;&amp;
+        SHM_BASE + SHM_SIZE &lt;= (mem.guest_phys_addr + mem.memory_size) &amp;&amp; !has_shm) {
+        struct kvm_shm_parm parm;
+        void *shm = (void *)mem.userspace_addr +
+            SHM_BASE - mem.guest_phys_addr;
+
+        printf(&quot;%s:%d gpa %llx size %llx, flags %x\n&quot;,
+            __func__, __LINE__,
+            mem.guest_phys_addr, mem.memory_size, mem.flags);
+
+        parm.uva_start = (uint64_t)shm;
+        parm.uva_size = SHM_SIZE;
+        ret = kvm_vm_ioctl(s, KVM_REG_SHARED_MEM, &amp;parm);
+        printf(&quot;%s:%d register %llx len %llx ret %d\n&quot;, __func__, __LINE__,
+               (__u64)shm, SHM_SIZE, ret);
+
+        printf(&quot;\t content from KVM %x %x %x\n&quot;, *(int *)shm, *(int *)(shm + (1UL &lt;&lt; 10)),
+               *(int *)(shm + (1UL &lt;&lt; 11)));
+        *(int *)shm = 0x1234;
+        *(int *)(shm + (1UL &lt;&lt; 10)) = 0x4321;
+        *(int *)(shm + (1UL &lt;&lt; 11)) = 0x1234abcd;
+        printf(&quot;\t content to VM %x %x %x\n&quot;,
+               *(int *)shm, *(int *)(shm + (1UL &lt;&lt; 10)),
+               *(int *)(shm + (1UL &lt;&lt; 11)));
+        has_shm = true;
+    }
+    ---
+</code></pre>
+<h2 id="hostkvm">Host/KVM</h2>
+<p>在KVM新添加的ioctl中我们在参数中拿到hva的地址和共享内存的大小后，调用<code>get_user_page</code>将这段内存pin在内存中（防止迁移与swap），并且此时KVM能够通过page结构体直接访问这块内存的页，为了更加简单的读写共享内存，我们使用<code>vm_map_ram</code>将pages结构体转化成连续的内核虚拟地址，此时Host(KVM)就能够通过这个地址直接访问共享内存。</p>
+<p>正如上面提到的，为了让QEMU验证是否KVM读写成功了这块共享内存，KVM会向共享内存中写入数据。</p>
+<pre><code>case KVM_REG_SHARED_MEM: {
+    struct kvm_shm_parm parm;
+    struct page **pages;
+    unsigned long npages;
+    unsigned long shm_start, shm_size;
+    int r, nid = 0;
+
+    r = -EFAULT;
+    if (copy_from_user(&amp;parm, argp, sizeof(parm)))
+        goto out;
+
+    shm_start = parm.uva_start;
+    shm_size = parm.uva_size;
+    npages = 1 + ((shm_size - 1) / PAGE_SIZE);
+    pages = vmalloc(npages * sizeof(*pages));
+
+    /**
+     * Pin and access user pages
+     */
+    down_read(&amp;current-&gt;mm-&gt;mmap_lock);
+    r = get_user_pages(shm_start, npages, FOLL_WRITE, pages, NULL);
+    up_read(&amp;current-&gt;mm-&gt;mmap_lock);
+    if (r != npages) {
+        vfree(pages);
+        goto out;
+    }
+
+    /**
+     * Map pages into continuous address
+     */
+    nid = page_to_nid(pages[0]);
+    kvm-&gt;kvm_shm = vm_map_ram(pages, npages, nid);
+    if (!kvm-&gt;kvm_shm) {
+        vfree(pages);
+        goto out;
+    }
+
+    printk(&quot;%s:%d sm_va %px, npages %lu, r %d\n&quot;,
+            __func__, __LINE__, kvm-&gt;kvm_shm, npages, r);
+    *(int *)(kvm-&gt;kvm_shm) = 0xaaaa;
+    *(int *)((kvm-&gt;kvm_shm) + (1UL &lt;&lt; 10)) = 0xbbbb;
+    *(int *)((kvm-&gt;kvm_shm) + (1UL &lt;&lt; 11)) = 0xccccdddd;
+    pr_info(&quot;\t content to QEMU %x %x %x\n&quot;,
+        *(int *)(kvm-&gt;kvm_shm), *(int *)((kvm-&gt;kvm_shm) + (1UL &lt;&lt; 10)),
+        *(int *)((kvm-&gt;kvm_shm) + (1UL &lt;&lt; 11)));
+    break;
+}
+</code></pre>
+<h2 id="guest-kernel">Guest kernel</h2>
+<p>Guest kernel是最后看到这块共享内存的，它可以查看自己物理地址8G到8G+1M这个区间中是否有来自QEMU写好的数据。Guest kernel会将这个共享内存对应的内核va记录下来，之后可以使用这个va来读写共享内存。</p>
+<pre><code>/*
+ * SHM layout:
+ * 8G &lt;-&gt; 8G + 1M
+ */
+static u64 SHM_PA = 8UL &lt;&lt; 30;
+static u64 SHM_SZ = 1UL &lt;&lt; 20;
+static void* shm_va;
+
+static int probe_shared_mem(void)
+{
+    shm_va = memremap(SHM_PA, SHM_SZ, MEMREMAP_WB);
+    if (IS_ERR(shm_va)) {
+        pr_err(&quot;%s:%d failed to memremap shared mem\n&quot;,
+                __func__, __LINE__);
+        return PTR_ERR(shm_va);
+    }
+
+    printk(&quot;%s:%d memremap va %px, pa %llx\n&quot;,
+            __func__, __LINE__, shm_va, SHM_PA);
+    printk(&quot;\t content from QEMU %x %x %x\n&quot;,
+            *(int *)shm_va, *(int *)(shm_va + (1UL &lt;&lt; 10)),
+            *(int *)(shm_va + (1UL &lt;&lt; 11)));
+    memset(shm_va, 0, SHM_SZ);
+
+    return 0;
+}
+
+</code></pre>
+<h2 id="_2">共享内存验证</h2>
+<p>在启动过程中，可以在Host的dmesg和Guest的启动log中检查共享内存是否建立成功:
+<img alt="" src="../static/kvm_to_qemu.png" />
+<img alt="" src="../static/qemu_to_guest.png" />
+<img alt="" src="../static/guest_probe.png" /></p>
+<!--
+## 问题
+
+1. QEMU和Guest本来就是共享内存的，只是现在为了让KVM也看到这个共享内存，才需要这篇文章加入的代码？
+-->
+
+<h2 id="_3">参考</h2>
+<p><a href="https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm">https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm</a></p>
+<p><a href="https://www.cnblogs.com/LoyenWang/p/13943005.html">https://www.cnblogs.com/LoyenWang/p/13943005.html</a></p>
+<p><a href="https://zhuanlan.zhihu.com/p/530963525">https://zhuanlan.zhihu.com/p/530963525</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>
