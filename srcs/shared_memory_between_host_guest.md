@@ -4,7 +4,7 @@ date: 2022-09-11
 legacy_url: yes
 ---
 
-## 介绍
+## 内存虚拟化介绍
 
 这篇文章会介绍如何在QEMU/KVM 虚拟化中为Guest kernel和Host kernel创建一块shared memory。有了共享内存之后可以做很多用意思的事情，比如共享调度信息，共享IO队列等等。
 
@@ -25,158 +25,178 @@ legacy_url: yes
 
 因此QEMU/KVM中现有的机制允许Host中的QEMU访问Guest的物理内存，也就是说QEMU和Guest是天然共享着内存的。这篇文章将会介绍如何进一步让KVM(也就是Host kernel)和Guest之间共享一块内存，实现这样一套机制很有意义，因为Host中大部分有价值的信息以及代码都是在kernel中的，Host kernel能够利用这块共享内存帮助虚拟机提供更多信息或者做更多的事情。
 
-我们将让Guest物理内存的8G<->8G + 1M这1M的内存共享给Host kernel。这需要我们更改QEMU, Host kernel, Guest kernel的代码。代码可以在[Github](https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm)上看到。
+## 共享内存实现
 
-下面依次介绍QEMU, Host kernel, Guest kernel的修改：
+我们将让Guest物理内存的8G<->8G + 1M这1M的内存共享给Host kernel。这需要更改Host kernel, Guest kernel的代码。具体代码可以在[Github](https://github.com/iaGuoZhi/linux)上看到。
 
-## QEMU
+由于Guest和QEMU天然是共享这内存的，Guest可以通过gva拿到gpa，QEMU也能够通过hva拿到gpa。而QEMU只不过是Host里的一个普通进程，Host肯定也是能够看到QEMU内存的，也就可以看到虚拟机的内存。因此我们这个共享内存的实现其实只需要让KVM(Host kernel)知道如何访问到虚拟机的gpa对应的物理内存即可, 缺少的是一个正确的Host kernel va。
 
-QEMU会针对每一个memory slot调用`kvm_set_user_memory_region`，这个函数将调用KVM的ioctl(KVM\_SET\_USER\_MEMORY\_REGION)完成每个slot gpa到hva的转化。其具体过程可以看[LoyenWang的文章](https://www.cnblogs.com/LoyenWang/p/13943005.html)。在QEMU的`kvm_set_user_memory_region`这个函数中，我们加入以下代码，当遇到涵盖我们共享内存区间的memory slot时，我们对KVM调用一个我们新添加的ioctl(KVM\_REG\_SHARED\_MEM)，完成后我们能够对这块地址进行检查，看是否KVM在上面写了预期的数据，并更改这些数据，以让虚拟机启动之后进行检查。
+于是我们的代码需要做两个事情:
+
+* Guest 将一个gpa传给KVM。
+* KVM将gpa转化成Host kernel里面的va。
+
+### Hypercall
+
+将gpa传给KVM只需要在KVM里面添加一个Hypercall，在Guest里面通过调用该hypercall将gpa传给KVM即可。
+
+Host:
 
 ```
-/* SHM layout:
- * 8G <-> 8G + 1M
- */
-static __u64 SHM_BASE = 8UL << 30;
-static __u64 SHM_SIZE = 1UL << 20;
-static bool has_shm = false;
-
-static int kvm_set_user_memory_region(KVMMemoryListener *kml, KVMSlot *slot, bool new)
+int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 {
-    ---
-    if (mem.guest_phys_addr <= SHM_BASE &&
-        SHM_BASE + SHM_SIZE <= (mem.guest_phys_addr + mem.memory_size) && !has_shm) {
-        struct kvm_shm_parm parm;
-        void *shm = (void *)mem.userspace_addr +
-            SHM_BASE - mem.guest_phys_addr;
-
-        printf("%s:%d gpa %llx size %llx, flags %x\n",
-            __func__, __LINE__,
-            mem.guest_phys_addr, mem.memory_size, mem.flags);
-
-        parm.uva_start = (uint64_t)shm;
-        parm.uva_size = SHM_SIZE;
-        ret = kvm_vm_ioctl(s, KVM_REG_SHARED_MEM, &parm);
-        printf("%s:%d register %llx len %llx ret %d\n", __func__, __LINE__,
-               (__u64)shm, SHM_SIZE, ret);
-
-        printf("\t content from KVM %x %x %x\n", *(int *)shm, *(int *)(shm + (1UL << 10)),
-               *(int *)(shm + (1UL << 11)));
-        *(int *)shm = 0x1234;
-        *(int *)(shm + (1UL << 10)) = 0x4321;
-        *(int *)(shm + (1UL << 11)) = 0x1234abcd;
-        printf("\t content to VM %x %x %x\n",
-               *(int *)shm, *(int *)(shm + (1UL << 10)),
-               *(int *)(shm + (1UL << 11)));
-		has_shm = true;
-    }
-	---
-```
-
-## Host/KVM
-
-在KVM新添加的ioctl中我们在参数中拿到hva的地址和共享内存的大小后，调用`get_user_page`将这段内存pin在内存中（防止迁移与swap），并且此时KVM能够通过page结构体直接访问这块内存的页，为了更加简单的读写共享内存，我们使用`vm_map_ram`将pages结构体转化成连续的内核虚拟地址，此时Host(KVM)就能够通过这个地址直接访问共享内存。
-
-正如上面提到的，为了让QEMU验证是否KVM读写成功了这块共享内存，KVM会向共享内存中写入数据。
-
-```
-case KVM_REG_SHARED_MEM: {
-	struct kvm_shm_parm parm;
-	struct page **pages;
-	unsigned long npages;
-	unsigned long shm_start, shm_size;
-	int r, nid = 0;
-
-	r = -EFAULT;
-	if (copy_from_user(&parm, argp, sizeof(parm)))
-		goto out;
-
-	shm_start = parm.uva_start;
-	shm_size = parm.uva_size;
-	npages = 1 + ((shm_size - 1) / PAGE_SIZE);
-	pages = vmalloc(npages * sizeof(*pages));
-
-	/**
-	 * Pin and access user pages
-	 */
-	down_read(&current->mm->mmap_lock);
-	r = get_user_pages(shm_start, npages, FOLL_WRITE, pages, NULL);
-	up_read(&current->mm->mmap_lock);
-	if (r != npages) {
-		vfree(pages);
-		goto out;
-	}
-
-	/**
-	 * Map pages into continuous address
-	 */
-	nid = page_to_nid(pages[0]);
-	kvm->kvm_shm = vm_map_ram(pages, npages, nid);
-	if (!kvm->kvm_shm) {
-		vfree(pages);
-		goto out;
-	}
-
-	printk("%s:%d sm_va %px, npages %lu, r %d\n",
-			__func__, __LINE__, kvm->kvm_shm, npages, r);
-	*(int *)(kvm->kvm_shm) = 0xaaaa;
-	*(int *)((kvm->kvm_shm) + (1UL << 10)) = 0xbbbb;
-	*(int *)((kvm->kvm_shm) + (1UL << 11)) = 0xccccdddd;
-	pr_info("\t content to QEMU %x %x %x\n",
-		*(int *)(kvm->kvm_shm), *(int *)((kvm->kvm_shm) + (1UL << 10)),
-		*(int *)((kvm->kvm_shm) + (1UL << 11)));
-	break;
+       ---
+       case KVM_HC_EXPOSE_SHM: {
+               64 gpa = a0;
+               break;
+       }
+       ---
 }
 ```
 
-## Guest kernel
+Guest:
 
-Guest kernel是最后看到这块共享内存的，它可以查看自己物理地址8G到8G+1M这个区间中是否有来自QEMU写好的数据。Guest kernel会将这个共享内存对应的内核va记录下来，之后可以使用这个va来读写共享内存。
 ```
-/*
- * SHM layout:
- * 8G <-> 8G + 1M
- */
-static u64 SHM_PA = 8UL << 30;
-static u64 SHM_SZ = 1UL << 20;
-static void* shm_va;
+/* 1M shared memory */
+static u64 SHM_SZ = 1 << 20;
 
-static int probe_shared_mem(void)
+void expose_shm(void)
 {
-	shm_va = memremap(SHM_PA, SHM_SZ, MEMREMAP_WB);
-	if (IS_ERR(shm_va)) {
-		pr_err("%s:%d failed to memremap shared mem\n",
-				__func__, __LINE__);
-		return PTR_ERR(shm_va);
+	    void *shm;
+
+	    shm = kmalloc(SHM_SZ, GFP_KERNEL);
+	    *(int *)shm = 0x1111;
+	    *(int *)(shm + (1 << 10)) = 0x2222;
+	    *(int *)(shm + (1 << 11)) = 0x3333;
+	    pr_info("%s %d Content to KVM: %x %x %x\n",
+	    	    __func__, __LINE__, *(int *)shm, *(int *)(shm + (1 << 10)),
+	    	    *(int *)(shm + (1 << 11)));
+
+	    kvm_hypercall1(KVM_HC_EXPOSE_SHM, virt_to_phys(shm));
+}
+```
+
+### 利用hva
+
+第一件事情很简单，第二件事是KVM将gpa转化成Host kernel里面的va。这里有两个方法来实现，第一个是通过get\_from\_user 函数，另一个是自己手动走页表，先介绍第一个:
+
+```
+case KVM_HC_EXPOSE_SHM: {
+		u64 gpa = a0;
+		int r = 0, nid = 0, npages = 4;
+		unsigned long shm_hva = 0;
+		void *shm_addr =0;
+		struct page **pages;
+
+		shm_hva = gfn_to_hva(vcpu->kvm, (gfn_t)(gpa >> 12));
+		pages = vmalloc(npages * sizeof(*pages));
+		down_read(&current->mm->mmap_lock);
+		r = get_user_pages(shm_hva, npages, FOLL_WRITE, pages, NULL);
+		up_read(&current->mm->mmap_lock);
+		
+		if (r != npages) {
+			    vfree(pages);
+			    goto out;
+		}
+
+		nid = page_to_nid(pages[0]);
+		shm_addr = vm_map_ram(pages, npages, nid);
+		if (!shm_addr) {
+			    vfree(pages);
+			    goto out;
+		}
+
+		pr_info("[gz-debug]: %s\t%d\tContent from guest: %x %x %x\n",
+			    __func__, __LINE__, *(int *)shm_addr,
+			    *(int *)(shm_addr + (1 << 10)), *(int *)(shm_addr + (1 << 11)));
+		break;
 	}
+```
 
-	printk("%s:%d memremap va %px, pa %llx\n",
-			__func__, __LINE__, shm_va, SHM_PA);
-	printk("\t content from QEMU %x %x %x\n",
-			*(int *)shm_va, *(int *)(shm_va + (1UL << 10)),
-			*(int *)(shm_va + (1UL << 11)));
-	memset(shm_va, 0, SHM_SZ);
+如上面代码所示: 首先调用gfn\_to\_hva将gpa转化成hva, 再调用`get_user_page`将这1M内存pin在内存中（防止迁移与swap），此时KVM能够通过page结构体直接访问这块内存的页，为了更加简单的读写共享内存，我们使用`vm_map_ram`将pages结构体转化成连续的内核虚拟地址，此时Host(KVM)就能够通过这个地址直接访问共享内存。
 
-	return 0;
+### 直接走页表
+
+上面这个方法是将gpa转化成hva, 再对hva指向的用户态内存进行一些常规操作后在内核态访问，接下来这种方法是直接bypass hva，利用Stage2 page table将gpa直接翻译成hpa。
+
+在hypercall里面将gpa转化成hpa，在转化成kernel可以直接读写的va。
+```
+case KVM_HC_EXPOSE_SHM: {
+		u64 gpa = a0;
+		void *shm_hpa =0, *shm_k_addr;
+		shm_hpa = (void *)get_hpa_from_gpa(vcpu, gpa);
+		shm_k_addr = __va(shm_hpa);
+
+		pr_info("%s\t%d\tgpa: %llx\thpa: %llx\tkernel va: %llx\n",
+			    __func__, __LINE__, gpa, (u64)shm_hpa, (u64)shm_k_addr);
+		pr_info("%s\t%d\tContent from guest: %x %x %x\n",
+			    __func__, __LINE__, *(int *)shm_k_addr,
+			    *(int *)(shm_k_addr + (1 << 10)), *(int *)(shm_k_addr + (1 << 11)));
+		break;
+}
+```
+
+这个方法的关键是走Stage2 page table:
+首先需要拿到Stage2 page table的基地址和页表的级数。然后再逐级走页表，拿到最后的物理地址。
+
+```
+u64 get_hpa_from_gpa(struct kvm_vcpu *vcpu, gpa_t gpa)
+{
+		u64 *eptp, epte, epte_idx;
+		u64 ret;
+		int cur_level;
+
+		epte = 0;
+		epte_idx = 0;
+		ret = 0;
+
+		eptp = __va(vcpu->arch.mmu->root.hpa & SPTE_BASE_ADDR_MASK);
+		cur_level = vcpu->arch.mmu->root_role.level;
+
+		while (cur_level > 0) {
+			   epte_idx = SPTE_INDEX(gpa, cur_level);
+			   epte = *(eptp + epte_idx);
+			   if(!is_shadow_present_pte(epte)) {
+			   	  printk("Error! ept entry is empty\n");
+			   	  break;
+			   }
+
+			   if(cur_level == 2 && !!(epte&PT_PAGE_SIZE_MASK)){
+			   	  printk("large page!\n");
+			   	  cur_level--;
+			   }
+
+			   if (cur_level != 1)
+			   	   eptp = __va(epte & SPTE_BASE_ADDR_MASK);
+
+			   cur_level--;
+		}
+
+		if (cur_level == 0)
+			ret = epte & SPTE_BASE_ADDR_MASK;
+		return ret;
 }
 
 ```
 
 ## 共享内存验证
 
-在启动过程中，可以在Host的dmesg和Guest的启动log中检查共享内存是否建立成功:
+启动虚拟机，可以在Host的dmesg和Guest的启动log中检查共享内存是否建立成功:
 ![](../static/kvm_to_qemu.png)
 ![](../static/qemu_to_guest.png)
 ![](../static/guest_probe.png)
 
-<!--
-## 问题
+## 其他
 
-1. QEMU和Guest本来就是共享内存的，只是现在为了让KVM也看到这个共享内存，才需要这篇文章加入的代码？
--->
-
+上面的方法是基于Guest主动发起一个hypercall来共享某块内存的，那能不能够让Guest无感知呢？当然也可以，我们能够让QEMU在启动的时候调用KVM的ioctl来将共享内存的hva告诉KVM。这一部分可以参考[代码](https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm), 不在此展开。
 
 ## 参考
+
+https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_guest
+
+https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_host
+
+https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_walk_host
 
 https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm
 
