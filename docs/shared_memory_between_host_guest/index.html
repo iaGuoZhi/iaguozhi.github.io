@@ -102,7 +102,7 @@ void expose_shm(void)
         kvm_hypercall1(KVM_HC_EXPOSE_SHM, virt_to_phys(shm));
 }
 </code></pre>
-<h3 id="hva">利用hva</h3>
+<h3 id="hva">(方法一)利用hva</h3>
 <p>第一件事情很简单，第二件事是KVM将gpa转化成Host kernel里面的va。这里有两个方法来实现，第一个是通过get_from_user 函数，另一个是自己手动走页表，先介绍第一个:</p>
 <pre><code>case KVM_HC_EXPOSE_SHM: {
         u64 gpa = a0;
@@ -136,7 +136,7 @@ void expose_shm(void)
     }
 </code></pre>
 <p>如上面代码所示: 首先调用gfn_to_hva将gpa转化成hva, 再调用<code>get_user_page</code>将这1M内存pin在内存中（防止迁移与swap），此时KVM能够通过page结构体直接访问这块内存的页，为了更加简单的读写共享内存，我们使用<code>vm_map_ram</code>将pages结构体转化成连续的内核虚拟地址，此时Host(KVM)就能够通过这个地址直接访问共享内存。</p>
-<h3 id="_3">直接走页表</h3>
+<h3 id="2">(方法2)直接走页表</h3>
 <p>上面这个方法是将gpa转化成hva, 再对hva指向的用户态内存进行一些常规操作后在内核态访问，接下来这种方法是直接bypass hva，利用Stage2 page table将gpa直接翻译成hpa。</p>
 <p>在hypercall里面将gpa转化成hpa，在转化成kernel可以直接读写的va。</p>
 <pre><code>case KVM_HC_EXPOSE_SHM: {
@@ -191,19 +191,103 @@ void expose_shm(void)
             ret = epte &amp; SPTE_BASE_ADDR_MASK;
         return ret;
 }
-
 </code></pre>
-<h2 id="_4">共享内存验证</h2>
+<h3 id="3">(方法3) 修改页表增加映射</h3>
+<p>上述的两种方法(通过hva和走页表）的前提是这个gpa到hpa的映射是存在于第二级页表的，我们只能够通过在Guest侧指定共享内存的gpa，而无法在Host侧指定共享内存存在于一个特定的hpa。为了解决这个问题，实现hpa first，可以采用第三种方法，在Host侧为Guest传过来的一个尚未有第二级页表映射的gpa映射到我们指定的hpa上。</p>
+<p>Guest:</p>
+<pre><code>void expose_shm(void)
+{
+    u64 shm_gpa, shm_gva;
+
+    /*
+     * PA: 1G
+     * the gpa has no mapping in the second level page table,
+     * but the hypervisor will help to add new map for the invalid gpa.
+     */
+    shm_gpa = 1;
+    shm_gpa = shm_gpa &lt;&lt; 30;
+    shm_gva = (u64)__va(shm_gpa);
+
+    pr_info(&quot;[gz-debug]: %s\t%d\tgva: %llx\tgpa: %llx\n&quot;,
+            __func__, __LINE__, shm_gva, shm_gpa);
+
+    kvm_hypercall1(KVM_HC_EXPOSE_SHM, shm_gpa);
+
+    pr_info(&quot;%s %d Content from KVM: %x %x %x\n&quot;,
+        __func__, __LINE__, *(int *)shm_gva, *(int *)(shm_gva + (1 &lt;&lt; 4)),
+        *(int *)(shm_gva + (1 &lt;&lt; 6)));
+}
+</code></pre>
+<p>Guest 不再像之前一样通过kmalloc一段地址得到gpa，并写这块内存，因为如此的话，kvm会在处理第二阶段页表缺页（AMD里面叫做npf)的时候增加第二阶段页表的映射，之后我们再直接改页表就会与KVM自己的映射发生冲突。这里Guest直接拿一个gpa，然后调用hypercall让KVM增加映射。</p>
+<p>Host:</p>
+<pre><code>static void map_shm_ept(struct kvm_vcpu *vcpu, gpa_t gpa, phys_addr_t hpa)
+{
+    int cur_level;
+    int epte_idx;
+    u64 *eptp;
+    u64 epte;
+    struct page *new_page;
+
+    cur_level = vcpu-&gt;arch.mmu-&gt;root_role.level;
+    eptp = __va(vcpu-&gt;arch.mmu-&gt;root.hpa &amp; SPTE_BASE_ADDR_MASK);
+
+    while (cur_level &gt; 0) {
+        epte_idx = SPTE_INDEX(gpa , cur_level);
+        epte = *(eptp + epte_idx);
+        if (cur_level == 1) {
+            //BUG_ON(is_shadow_present_pte(epte));
+            printk(&quot;epte: %llx\n&quot;, epte);
+            *(eptp + epte_idx) = hpa | 0xff7;
+            break;
+        }
+
+        if(!is_shadow_present_pte(epte)) {
+            new_page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+            epte = (page_to_phys(new_page) &amp; SPTE_BASE_ADDR_MASK) | 0x107;
+            *(eptp + epte_idx) = epte;
+        }
+
+        eptp = __va(epte &amp; SPTE_BASE_ADDR_MASK);
+        cur_level--;
+    }
+}
+</code></pre>
+<pre><code>ase KVM_HC_EXPOSE_SHM: {
+        u64 gpa = a0;
+        void *shm_k_addr;
+        phys_addr_t shm_hpa;
+
+        shm_k_addr = kmalloc(0x1000, GFP_KERNEL);
+        shm_hpa = virt_to_phys(shm_k_addr);
+        map_shm_ept(vcpu, gpa, shm_hpa);
+
+        pr_info(&quot;%s\t%d\tgpa: %llx\thpa: %llx\tkernel va: %llx\n&quot;,
+            __func__, __LINE__, gpa, (u64)shm_hpa, (u64)shm_k_addr);
+
+        *(int *)shm_k_addr = 0x1111;
+        *(int *)(shm_k_addr + (1 &lt;&lt; 4)) = 0x2222;
+        *(int *)(shm_k_addr + (1 &lt;&lt; 6)) = 0x3333;
+        pr_info(&quot;%s\t%d\tContent to guest: %x %x %x\n&quot;,
+            __func__, __LINE__, *(int *)shm_k_addr,
+            *(int *)(shm_k_addr + (1 &lt;&lt; 4)), *(int *)(shm_k_addr + (1 &lt;&lt; 6)));
+        break;
+    }
+</code></pre>
+<p>Host在hypercall中将gpa和一个hpa的映射添加到第二阶段页表中，这里我使用了一个任意的hpa，也可以自己指定一个具体的hpa。</p>
+<h2 id="_3">共享内存验证</h2>
+<p>上面三种方案的代码均通过验证，可以直接使用。其实第一种方案与硬件架构无关，第二三种方案因为要读写页表，与硬件相关，我实现的是x86架构的。</p>
 <p>启动虚拟机，可以在Host的dmesg和Guest的启动log中检查共享内存是否建立成功:
-<img alt="" src="../static/kvm_to_qemu.png" />
-<img alt="" src="../static/qemu_to_guest.png" />
-<img alt="" src="../static/guest_probe.png" /></p>
-<h2 id="_5">其他</h2>
-<p>上面的方法是基于Guest主动发起一个hypercall来共享某块内存的，那能不能够让Guest无感知呢？当然也可以，我们能够让QEMU在启动的时候调用KVM的ioctl来将共享内存的hva告诉KVM。这一部分可以参考<a href="https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm">代码</a>, 不在此展开。</p>
-<h2 id="_6">参考</h2>
+<img alt="" src="../static/kvm_to_guest.png" />
+<img alt="" src="../static/guest_probe_2.png" /></p>
+<h2 id="_4">其他</h2>
+<p>上面的方法是基于Guest主动发起一个hypercall来共享某块内存的，但是这个方法有一个缺陷：
+共享内存的地址不是固定的，是虚拟机启动之后随机分配的。那能否实现一个固定的共享内存呢？当然也可以，我们能够让QEMU在启动的时候选择特定的gpa作为参数调用KVM的ioctl来将共享内存的hva告诉KVM。这一部分可以参考<a href="https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm">代码</a>, 不在此展开。</p>
+<h2 id="_5">参考</h2>
 <p><a href="https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_guest">https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_guest</a></p>
 <p><a href="https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_host">https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_host</a></p>
 <p><a href="https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_walk_host">https://github.com/iaGuoZhi/linux/tree/kvm_shm_hc_walk_host</a></p>
+<p><a href="https://github.com/iaGuoZhi/linux/tree/add_stage2_mapping_guest">https://github.com/iaGuoZhi/linux/tree/add_stage2_mapping_guest</a></p>
+<p><a href="https://github.com/iaGuoZhi/linux/tree/add_stage2_mapping_host">https://github.com/iaGuoZhi/linux/tree/add_stage2_mapping_host</a></p>
 <p><a href="https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm">https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm</a></p>
 <p><a href="https://www.cnblogs.com/LoyenWang/p/13943005.html">https://www.cnblogs.com/LoyenWang/p/13943005.html</a></p>
 <p><a href="https://zhuanlan.zhihu.com/p/530963525">https://zhuanlan.zhihu.com/p/530963525</a></p>
