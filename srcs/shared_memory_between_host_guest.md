@@ -283,7 +283,7 @@ Host在hypercall中将gpa和一个hpa的映射添加到第二阶段页表中，�
 ## 其他
 
 上面的方法是基于Guest主动发起一个hypercall来共享某块内存的，但是这个方法有一个缺陷：
-共享内存的地址不是固定的，是虚拟机启动之后随机分配的。那能否实现一个固定的共享内存呢？当然也可以，我们能够让QEMU在启动的时候选择特定的gpa作为参数调用KVM的ioctl来将共享内存的hva告诉KVM。这一部分可以参考[代码](https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm), 不在此展开。
+需要在虚拟机启动并发hypercall之后KVM才能够使用共享内存并写数据，有没有可能在虚拟机启动之前KVM就找到了共享内存，并提前在里面放了数据？当然也可以，我们能够让QEMU在启动的时候选择特定的gpa作为参数调用KVM的ioctl来将共享内存的hva告诉KVM。这一部分可以参考[代码](https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm), 不在此展开。
 
 ## 参考
 
