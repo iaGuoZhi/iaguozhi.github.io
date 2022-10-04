@@ -128,7 +128,7 @@
 <p>因为我的社区是QEMU，最终的目标是将代码合并进入Linux/QEMU的主线。因此写代码就一定要奔着发patch去。</p>
 <p>首先我们应该发一个RFC的patch给社区，让社区的reviewer和mentor一起评阅我们的代码。我这里犯了一个错误，因为我刚开始更加倾向于Github工作流，当mentor开会时说我最好能够让他们看到代码再给意见，我是用Github发PR的方式让他们看我的代码（我的mentor当时没有建议我发patch给社区，可能一个原因是因为当时还很早，另一个原因是他们会非常尊重Contributor的选择），结果我按照mentor在Github上review的意见修改了很久后，再通过邮件的形式发patch给社区，社区reviewer的答复跟我mentor在Github给的意见相冲突，我得重新设计并修改，这浪费了不少的时间。这个教训就是reviewer决定我们patch是否能够合入他维护的分支，因此我们的代码一定最开始就要按照社区reviewer的意见来实现，但是reviewer除了回复邮件不会教我们怎样去实现，这时我们可以求助mentor。</p>
 <p>给社区发送patch的过程是一次对git使用能力的锻炼，Linux/QEMU社区要求代码里面的每一个commit完成且仅完成一个功能，每个commit要非常清晰，另外由于会有很多次对patch的修改，我们很多时候需要只改某个patch，而其他commit不发生改变。熟练的掌握git rebase对于完成这些要求帮助很大。
-每次发patch之前都应该使用check style脚本检查patch是否符合规范，每次发一个新版本的patch给社区应该在cover leter里面指明这一版本修改是哪些。这篇[博客]记录了我给QEMU发patch的过程(<a href="https://iaguozhi.github.io/qemu_patch/">https://iaguozhi.github.io/qemu_patch/</a>)，这篇<a href="https://iaguozhi.github.io/git-tips/">博客</a>介绍了我常用的git技巧以及QEMU社区的开发者们实现的一个非常好用的发patch工具git publish的使用。</p>
+每次发patch之前都应该使用check style脚本检查patch是否符合规范，每次发一个新版本的patch给社区应该在cover leter里面指明这一版本修改是哪些。这篇<a href="https://iaguozhi.github.io/qemu_patch/">博客</a>记录了我给QEMU发patch的过程，这篇<a href="https://iaguozhi.github.io/git-tips/">博客</a>介绍了我常用的git技巧以及QEMU社区的开发者们实现的一个非常好用的发patch工具git publish的使用。</p>
 <p>在项目Final evaluation的时候我们需要提交一个我们代码的链接，我将自己对Linux，QEMU代码的修改都放在这个<a href="https://github.com/iaGuoZhi/Virtualization/tree/master/in_order">仓库</a>[10]。</p>
 <h3 id="mentor">与mentor沟通</h3>
 <p>我和我的mentor是每周定期在google meeting里面开一个小时的会，除此之外有什么问题会直接在Matrix里面讨论。这对于我们英文特别是口语有比较高的要求，我自己遇到的一个问题就是在用英语开会时很容易词不达意，比如说我想向跟mentor说我们可以暂时关注design而不是代码风格，却表达成了我觉得代码风格不重要。因为我英文不是很好，比起直接用中文开会讨论，用英文开会效率要低很多。</p>
