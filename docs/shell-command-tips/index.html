@@ -109,6 +109,10 @@
 <p>裁剪kernel，删除debug信息（在/boot分区快满了时候是很有必要的)</p>
 <pre><code>sudo find /lib/modules/4.15.0iommu-v2+ -name *.ko -exec strip --strip-debug {} +  &amp;&amp; \
 </code></pre>
+<h3 id="sed">sed</h3>
+<p>替换文件内容</p>
+<pre><code>sed -i 's/archive.ubuntu.com/mirror.sjtu.edu.cn/g' /etc/apt/sources.list
+</code></pre>
 <h3 id="grep">grep</h3>
 <p>递归替换所有oldtext为newtext</p>
 <pre><code>grep -rl oldtext . | xargs sed -i 's/oldtext/newtext/g'

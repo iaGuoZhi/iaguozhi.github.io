@@ -116,6 +116,13 @@ find . -type f -name "*.swp" -delete
 sudo find /lib/modules/4.15.0iommu-v2+ -name *.ko -exec strip --strip-debug {} +  && \
 ```
 
+### sed
+
+替换文件内容
+```
+sed -i 's/archive.ubuntu.com/mirror.sjtu.edu.cn/g' /etc/apt/sources.list
+```
+
 ### grep
 
 递归替换所有oldtext为newtext
