@@ -165,6 +165,17 @@ mount /dev/vda /mnt
 
 启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考[dhcp](https://blog.csdn.net/lee244868149/article/details/49249887)。
 
+配置好ip好，添加dns nameserver:
+
+```
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+```
+
+更换Ubuntu apt 源
+```
+sed -i 's/archive.ubuntu.com/mirror.sjtu.edu.cn/g' /etc/apt/sources.list
+```
+
 ## chroot
 
 有些时候，我们可能觉得initrd中提供的命令不够，此时我们可以使用主流Linux发行版制作的rootfs来作为我们最后的rootfs(此时甚至可以在kernel中使用Ubuntu的apt安装程序):
