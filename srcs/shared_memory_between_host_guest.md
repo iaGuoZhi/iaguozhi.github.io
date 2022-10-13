@@ -78,7 +78,7 @@ void expose_shm(void)
 
 ### (方法一)利用hva
 
-第一件事情很简单，第二件事是KVM将gpa转化成Host kernel里面的va。这里有两个方法来实现，第一个是通过get\_from\_user 函数，另一个是自己手动走页表，先介绍第一个:
+第一件事情很简单，第二件事是KVM将gpa转化成Host kernel里面的va。这里有两个方法来实现，第一个是通过get\_user\_pages 函数，另一个是自己手动走页表，先介绍第一个:
 
 ```
 case KVM_HC_EXPOSE_SHM: {
