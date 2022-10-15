@@ -144,6 +144,20 @@ git bisect
 
 ### submodules
 
+添加submodule
+
+```
+git submodule add --depth 1 https://github.com/iaGuoZhi/linux kernel
+```
+
+选择submodule分支
+
+```
+cd kernel
+git fetch origin shm_kernel_driver:shm_kernel_driver --depth=10
+git checkout shm_kernel_driver
+```
+
 更新所有的submodule
 
 ```

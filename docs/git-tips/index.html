@@ -123,6 +123,14 @@
 <pre><code>git bisect
 </code></pre>
 <h3 id="submodules">submodules</h3>
+<p>添加submodule</p>
+<pre><code>git submodule add --depth 1 https://github.com/iaGuoZhi/linux kernel
+</code></pre>
+<p>选择submodule分支</p>
+<pre><code>cd kernel
+git fetch origin shm_kernel_driver:shm_kernel_driver --depth=10
+git checkout shm_kernel_driver
+</code></pre>
 <p>更新所有的submodule</p>
 <pre><code>git submodule update --init --recursive
 </code></pre>
