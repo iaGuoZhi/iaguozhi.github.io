@@ -9,6 +9,13 @@
 
   
   <item>
+    <title>创建内核态与用户态的共享内存</title>
+    <link>https://iaguozhi.github.io/shared_memory_between_kernel_user</link>
+    <guid>https://iaguozhi.github.io/shared_memory_between_kernel_user</guid>
+    <pubDate>Sat, 15 Oct 2022 12:00:00 Z</pubDate>
+  </item>
+  
+  <item>
     <title>创建Host kernel与Guest的共享内存</title>
     <link>https://iaguozhi.github.io/shared_memory_between_host_guest</link>
     <guid>https://iaguozhi.github.io/shared_memory_between_host_guest</guid>
