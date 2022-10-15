@@ -133,6 +133,10 @@
 <p>将当前目录中所有文件的owner设置为foo:</p>
 <pre><code>sudo chown -R foo ./
 </code></pre>
+<h3 id="chmod">chmod</h3>
+<p>修改/tmp目录的权限，包括sticky bit</p>
+<pre><code>chmod 1777 /tmp
+</code></pre>
 <h3 id="_5">重定向</h3>
 <p>同时重定位到文件与stdout</p>
 <pre><code>./prog 2&gt;&amp;1 | tee outfile

@@ -159,6 +159,13 @@ mktemp -p .
 sudo chown -R foo ./
 ```
 
+### chmod
+
+修改/tmp目录的权限，包括sticky bit
+```
+chmod 1777 /tmp
+```
+
 ### 重定向
 
 同时重定位到文件与stdout
