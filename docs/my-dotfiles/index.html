@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>我的dotfiles技巧 - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="我的dotfiles技巧 - iaGuoZhi">
+<meta property="twitter:title" content="我的dotfiles技巧 - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/my-dotfiles">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on October 16, 2022</time>
+    · <a href="/">view all posts</a>
+  </aside>
+  <h1>我的dotfiles技巧</h1>
+  <content>
+    <h2 id="vim">Vim</h2>
+<h3 id="_1">技巧</h3>
+<pre><code>map &lt;LEADER&gt;a  &lt;Esc&gt;opr_info(&quot;[gz-debug]: %s\t%d\n&quot;, __func__, __LINE__);&lt;CR&gt;&lt;Esc&gt;
+</code></pre>
+<pre><code>map &lt;LEADER&gt;&lt;LEADER&gt;   &lt;Esc&gt;/TBR&lt;CR&gt;:nohlsearch&lt;CR&gt;
+</code></pre>
+<pre><code>map &lt;LEADER&gt;sc :set spell!&lt;CR&gt;
+</code></pre>
+<pre><code>map &lt;LEADER&gt;c  &lt;Esc&gt;o```&lt;CR&gt;
+</code></pre>
+<pre><code>w !sudo tee %
+</code></pre>
+<pre><code>&quot; ===
+&quot; === Restore Cursor Position
+&quot; ===
+au BufReadPost * if line(&quot;'\&quot;&quot;) &gt; 1 &amp;&amp; line(&quot;'\&quot;&quot;) &lt;= line(&quot;$&quot;) | exe &quot;normal! g'\&quot;&quot; | endif
+</code></pre>
+<pre><code>noremap &lt;LEADER&gt;&lt;CR&gt; :nohlsearch&lt;CR&gt;
+</code></pre>
+<pre><code>noremap K 5k
+noremap J 5j
+</code></pre>
+<pre><code>map sl :set splitright&lt;CR&gt;:vsplit&lt;CR&gt;
+map sh :set nosplitright&lt;CR&gt;:vsplit&lt;CR&gt;
+map sk :set nosplitbelow&lt;CR&gt;:split&lt;CR&gt;
+map sj :set splitbelow&lt;CR&gt;:split&lt;CR&gt;
+
+map &lt;LEADER&gt;l &lt;C-w&gt;l
+map &lt;LEADER&gt;h &lt;C-w&gt;h
+map &lt;LEADER&gt;k &lt;C-w&gt;k
+map &lt;LEADER&gt;j &lt;C-w&gt;j
+</code></pre>
+<h3 id="_2">插件</h3>
+<pre><code>Plug 'Valloric/YouCompleteMe'
+Plug 'airblade/vim-gitgutter'
+Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app &amp;&amp; yarn install'  }
+&quot; Error checking
+Plug 'dense-analysis/ale'
+&quot; File navigation
+Plug 'scrooloose/nerdtree', { 'on': 'NERDTreeToggle' }
+Plug 'wakatime/vim-wakatime' &quot; track coding time
+</code></pre>
+<h2 id="tmux">Tmux</h2>
+<pre><code># move across panes
+bind h select-pane -L
+bind j select-pane -D
+bind k select-pane -U
+bind l select-pane -R
+
+bind '&quot;' split-window -c &quot;#{pane_current_path}&quot;
+bind % split-window -h -c &quot;#{pane_current_path}&quot;
+bind c new-window -c &quot;#{pane_current_path}&quot;
+</code></pre>
+<pre><code>set -g @continuum-restore 'on' # 启用自动恢复
+set -g @continuum-save-interval '360'
+</code></pre>
+<h2 id="zsh">Zsh</h2>
+<h3 id="_3">技巧</h3>
+<pre><code>alias start-proxy=&quot;export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890&quot;
+alias close-proxy=&quot;unset https_proxy &amp;&amp; unset http_proxy &amp;&amp; unset all_proxy&quot;
+</code></pre>
+<pre><code>bindkey '^a' autosuggest-accept
+</code></pre>
+<pre><code>PROMPT=%{$fg_bold[blue]%}%m\ $PROMPT
+</code></pre>
+<h3 id="_4">插件</h3>
+<pre><code>plugins=(colored-man-pages common-aliases docker extract git golang kubectl sudo zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)
+</code></pre>
+<pre><code>source $ZSH/oh-my-zsh.sh
+</code></pre>
+<h2 id="git">Git</h2>
+<pre><code>[http]
+    proxy = http://127.0.0.1:7890
+[https]
+    proxy = https://127.0.0.1:7890
+</code></pre>
+<pre><code>[sendemail.linux]
+    tocmd =&quot;`pwd`/scripts/get_maintainer.pl --nogit --nogit-fallback --norolestats --nol&quot;
+    cccmd =&quot;`pwd`/scripts/get_maintainer.pl --nogit --nogit-fallback --norolestats --nom&quot;
+</code></pre>
+<h2 id="_5">参考</h2>
+<p><a href="https://github.com/iaguozhi/dotfiles">https://github.com/iaguozhi/dotfiles</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <!--<a href="https://thea.codes"><i class="fa fa-link" aria-hidden="true"></i> thea.codes</a>-->
+          <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+
+  <!-- webfonts & icons-->
+  <link href="/static/fontawesome/css/fontawesome-all.min.css" rel="stylesheet">
+
+  <!-- Google Analytics (that's right, I'm tracking you) -->
+  <script async="" src="https://www.google-analytics.com/analytics.js"></script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47725506-1', 'blog.thea.codes');
+    ga('send', 'pageview');
+
+  </script>
+
+</body>
+</html>
