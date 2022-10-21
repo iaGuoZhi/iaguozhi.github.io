@@ -64,6 +64,11 @@
 --location 'http://archive.ubuntu.com/ubuntu/dists/bionic/main/installer-amd64/' \
 --extra-args &quot;console=tty0 console=ttyS0,115200n8&quot;
 </code></pre>
+<p>这个例子中安装完成(Software选择OpenSSH Server)后，通过</p>
+<pre><code>virsh domifaddr falcon-1
+ssh cap@192.168.122.169
+</code></pre>
+<p>进入Ubuntu guest, 不能够通过host name ssh。</p>
 <p>通过libvirt启动的虚拟机，在启动成功之后可以通过virsh cli进行管理.
 比如:</p>
 <pre><code>virsh list  // 查看所有虚拟机

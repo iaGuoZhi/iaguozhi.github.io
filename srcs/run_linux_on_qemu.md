@@ -26,6 +26,13 @@ virt-install \
 --extra-args "console=tty0 console=ttyS0,115200n8"
 ```
 
+这个例子中安装完成(Software选择OpenSSH Server)后，通过
+```
+virsh domifaddr falcon-1
+ssh cap@192.168.122.169
+```
+进入Ubuntu guest, 不能够通过host name ssh。
+
 通过libvirt启动的虚拟机，在启动成功之后可以通过virsh cli进行管理.
 比如:
 
