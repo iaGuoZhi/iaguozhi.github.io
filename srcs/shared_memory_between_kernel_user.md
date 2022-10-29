@@ -244,3 +244,5 @@ https://github.com/iaGuoZhi/linux/tree/shm_kernel_driver
 https://github.com/pengdonglin137/remap_pfn_demo
 
 https://lwn.net/Articles/717293/
+
+https://lenovopress.lenovo.com/lp1468.pdf
