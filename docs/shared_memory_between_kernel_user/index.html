@@ -49,8 +49,7 @@
   <h1>创建内核态与用户态的共享内存</h1>
   <content>
     <p>实现内核与应用程序共享内存的常见方法是内核创建一个模拟设备在驱动中实现文件系统接口来提供共享内存，应用程序通过正常的文件系统API读写共享内存。</p>
-<h2 id="_1">内核</h2>
-<h3 id="_2">创建设备</h3>
+<h2 id="_1">内核创建设备</h2>
 <p>在kernel里面，可以创建一个最简单的设备并使用文件系统接口实现共享内存。我选择在<code>drivers/char</code>目录下新增加一个驱动来作为模拟设备提供共享内存。</p>
 <p>增加一个驱动，实际上是一个内核模块，要实现两个函数，分别是作为<code>module_init</code>的<code>shm_kernel_driver_init</code>与作为<code>module_exit</code>的<code>shm_kernel_driver_exit</code>。</p>
 <p><code>shm_kernel_driver_init</code>负责创建设备并添加到dev,sys文件系统中。这个代码比较通用，但是平时很少需要自己写，这里贴出来作为参考:</p>
@@ -104,8 +103,7 @@ r_class:
 <p>创建设备后，设备会出现在devfs中（/dev/shm_kernel_driver)。</p>
 <p>我在这个函数中还创建并初始化了一个4KB大小的页，它将被用来作为共享内存。</p>
 <p>至于<code>shm_kernel_driver_exit</code>就是释放<code>shm_kernel_driver_init</code>中创建的数据结构。</p>
-<h3 id="_3">实现共享内存</h3>
-<p>我实现了三个文件系统接口让应用程序读写共享内存，分别是read，write，mmap。在其中分别使用了<code>copy_to_user</code>，<code>copy_from_user</code>，<code>remap_pfn_range</code> 。具体代码如下:</p>
+<h2 id="_2">内核实现共享内存</h2>
 <pre><code>static struct file_operations fops =
 {
     .owner      = THIS_MODULE,
@@ -116,6 +114,8 @@ r_class:
     .mmap       = shm_kernel_driver_mmap,
 };
 </code></pre>
+<p>我实现了三个文件系统接口让应用程序读写共享内存，分别是read，write，mmap。其中read和write通过内存拷贝的方式让用户访问内核buffer里面的数据，这使用了<code>copy_to_user</code>，<code>copy_from_user</code>。mmap采用两种方式实现分别是内核接口<code>remap_pfn_range</code>和手动改页表 。下面分别进行介绍:</p>
+<h3 id="read-write">Read &amp; Write</h3>
 <pre><code>static ssize_t shm_kernel_driver_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
     nbytes = copy_to_user(buf, shm, PAGE_SIZE);
@@ -130,10 +130,13 @@ static ssize_t shm_kernel_driver_write(struct file *filp, const char __user *buf
     return 0;
 }
 
-static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
+</code></pre>
+<p>read和write直接使用copy_to_user和copy_from_user，这无须多言。</p>
+<h3 id="mmap">Mmap</h3>
+<p>read和write是通过内存拷贝的方式让应用程序访问到内核中的数据，这并不是真正意义上的共享内存。接下来将使用两种方式实现mmap接口，能够让用户直接访问到内核buffer所在的页。</p>
+<h4 id="reamp_pfn_range">Reamp_pfn_range</h4>
+<pre><code>static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-    vma-&gt;vm_flags |= VM_IO;
-
     if(remap_pfn_range(vma,
                 vma-&gt;vm_start,
                 virt_to_phys(shm)&gt;&gt;PAGE_SHIFT,
@@ -146,9 +149,49 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
     return 0;
 }
 </code></pre>
-<p>read和write都很好理解，mmap是使用了<code>remap_pfn_range</code>函数将共享内存的物理页面直接添加到用户进程的vma中，并返回一个虚拟地址，当用户程序访问这个虚拟地址的时候会触发缺页，缺页处理函数会从vma找到共享内存的物理地址并作为缺页地址的物理地址映射到页表中。于是在这个过程中，就不再与read，write一样进行对共享内存数据的拷贝。</p>
-<p>因此应用程序使用mmap这个接口才是真正意义上的使用共享内存。</p>
-<h3 id="config">修改Config</h3>
+<p>使用<code>remap_pfn_range</code>函数会将共享内存的物理页面直接添加到用户进程的页表中。但<code>remap_pfn_range</code>要求给整个vma映射物理内存，如果我们只想将这个vma中的一个页映射到内核的buffer上，应该如何做呢？接下来介绍如何直接修改进程的页表实现共享内存。</p>
+<h4 id="_3">改页表</h4>
+<pre><code>static u64 update_pgt(struct vm_area_struct *vma, u64 uva, u64 pfn)
+{
+        pgd_t *pgd;
+        p4d_t *p4d;
+        pud_t *pud;
+        pmd_t *pmd;
+        pte_t *ptep, pte;
+
+        pgd = pgd_offset(current-&gt;mm, uva);
+        printk(&quot;[walk_pgt] pgd: %llx\n&quot;, (unsigned long long)pgd);
+
+        p4d = p4d_alloc(current-&gt;mm, pgd, uva);
+        printk(&quot;[walk_pgt] p4d: %llx\n&quot;, (unsigned long long)p4d);
+
+        pud = pud_alloc(current-&gt;mm, p4d, uva);
+        printk(&quot;[walk_pgt] pud: %llx\n&quot;, (unsigned long long)pud);
+
+        pmd = pmd_alloc(current-&gt;mm, pud, uva);
+        printk(&quot;[walk_pgt] pmd: %llx\n&quot;, (unsigned long long)pmd);
+
+        ptep = pte_offset_kernel(pmd, uva);
+        printk(&quot;[walk_pgt] ptep: %llx\n&quot;, (unsigned long long)ptep);
+        set_pte(ptep, pte_mkspecial(pfn_pte(pfn, vma-&gt;vm_page_prot)));
+        pte = READ_ONCE(*ptep);
+
+        pr_info(&quot;[walk_pgt] uva: %llx pfn: %llx updated pte: %llx\n&quot;,
+                uva, pfn, (u64)pte_val(pte));
+        return 0;
+}
+
+static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+        vma-&gt;vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
+        update_pgt(vma, vma-&gt;vm_start, virt_to_phys(shm) &gt;&gt; PAGE_SHIFT);
+        return 0;
+}
+</code></pre>
+<p>在这里我们实现了走页表与分配页表的逻辑。理解这个代码需要对内核里的一些内存页表术语有所了解。</p>
+<p>目前Linux采用了5级页表，如下图所示，从大到小依次为PGD, P4D, PUD, PMD, PTE。</p>
+<p><img alt="" src="../static/five-level-pt.png" /></p>
+<h2 id="config">修改内核Config</h2>
 <p>因为我们新增加了一个驱动和源码文件。需要修改Makefile来让这个文件被编译进入内核，并修改Kconfig让用户可以选择这个新增加的共享内存模拟设备的驱动。</p>
 <p>修改完成之后，需要<code>make menuconfig</code>选中新添加的设备。</p>
 <p>修改示例(需要注意这里的命名需要一致，都是SHM_KERNEL_DRIVER):</p>
@@ -194,6 +237,7 @@ int test_shm_mmap(int shm_fd, void *buf)
 <p><a href="https://github.com/iaGuoZhi/Virtualization/tree/master/kernel-user-shm">https://github.com/iaGuoZhi/Virtualization/tree/master/kernel-user-shm</a></p>
 <p><a href="https://github.com/iaGuoZhi/linux/tree/shm_kernel_driver">https://github.com/iaGuoZhi/linux/tree/shm_kernel_driver</a></p>
 <p><a href="https://github.com/pengdonglin137/remap_pfn_demo">https://github.com/pengdonglin137/remap_pfn_demo</a></p>
+<p><a href="https://lwn.net/Articles/717293/">https://lwn.net/Articles/717293/</a></p>
   </content>
 </article>
 
