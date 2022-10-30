@@ -110,7 +110,7 @@ read和write直接使用copy\_to\_user和copy\_from\_user，这无须多言。
 
 read和write是通过内存拷贝的方式让应用程序访问到内核中的数据，这并不是真正意义上的共享内存。接下来将使用两种方式实现mmap接口，能够让用户直接访问到内核buffer所在的页。
 
-#### Reamp\_pfn\_range
+#### Remap\_pfn\_range
 
 ```
 static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
@@ -118,7 +118,7 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
 	if(remap_pfn_range(vma,
 				vma->vm_start,
 				virt_to_phys(shm)>>PAGE_SHIFT,
-				vma->vm_end - vma->vm_start,
+				PAGE_SIZE,
 				vma->vm_page_prot))
 	{
 		return -EAGAIN;
@@ -128,7 +128,7 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
 }
 ```
 
-使用`remap_pfn_range`函数会将共享内存的物理页面直接添加到用户进程的页表中。但`remap_pfn_range`要求给整个vma映射物理内存，如果我们只想将这个vma中的一个页映射到内核的buffer上，应该如何做呢？接下来介绍如何直接修改进程的页表实现共享内存。
+使用`remap_pfn_range`函数会将共享内存的物理页面直接添加到用户进程的页表中。
 
 #### 改页表
 
@@ -170,11 +170,16 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
         return 0;
 }
 ```
-在这里我们实现了走页表与分配页表的逻辑。理解这个代码需要对内核里的一些内存页表术语有所了解。
+
+除了使用`remap_pfn_range`的接口，也可以直接自己实现修改页表的逻辑。理解上面这段代码需要对内核里的一些内存页表术语有所了解。
 
 目前Linux采用了5级页表，如下图所示，从大到小依次为PGD, P4D, PUD, PMD, PTE。
 
 ![](../static/five-level-pt.png)
+
+`update_pgt`开始从`current->mm`中拿到CR3寄存器中的页表基地址，根据uva每一级的值作为寻找下一级页表的索引找到下一级页表页的地址，如果出现了下一级页表页为空的情况，会直接分配一个新的物理页面，并修改上一级页表项指向这个新分配的页面。PTE项上存着我们传入的物理页的地址（除了PTE上存物理地址，其他级页表上都是存着下一级页表的线性虚拟地址）。
+
+再调用`update_pgt`之前，需要更新vma的`vm_flags`，使用`VM_PFNMAP`让kernel知道这个页面只是一个裸的PFN映射，并没有对应的page结构体。否则在进程结束kernel回收进程内存时，找不到这个新映射的物理页对应的page结构体也没有读到`VM_PFNMAP`这个flag，kernel会认为这是一个非法的映射，从而报错。
 
 ## 修改内核Config
 
@@ -225,6 +230,8 @@ int test_shm_mmap(int shm_fd, void *buf)
 }
 ```
 
+这里mmap的flag需要设置为MAP\_SHARED，不能够是MAP\_PRIVATE，因为如果是MAP\_PRIVATE并且具有PROT\_WRITE权限，Linux将会把这个vma视为cow（copy on write）。当应用程序通过mmap写mmap出来的虚拟地址时，内核会新分配一些物理页映射给这个vma，之后写入的数据不会存在于`/dev/shm_kernel_driver`维护的buffer中。
+
 ## 验证
 
 用户程序输出:
@@ -246,3 +253,5 @@ https://github.com/pengdonglin137/remap_pfn_demo
 https://lwn.net/Articles/717293/
 
 https://lenovopress.lenovo.com/lp1468.pdf
+
+https://insujang.github.io/2017-04-07/linux-kernel-memory-map-operations/

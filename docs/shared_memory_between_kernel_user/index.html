@@ -134,13 +134,13 @@ static ssize_t shm_kernel_driver_write(struct file *filp, const char __user *buf
 <p>read和write直接使用copy_to_user和copy_from_user，这无须多言。</p>
 <h3 id="mmap">Mmap</h3>
 <p>read和write是通过内存拷贝的方式让应用程序访问到内核中的数据，这并不是真正意义上的共享内存。接下来将使用两种方式实现mmap接口，能够让用户直接访问到内核buffer所在的页。</p>
-<h4 id="reamp_pfn_range">Reamp_pfn_range</h4>
+<h4 id="remap_pfn_range">Remap_pfn_range</h4>
 <pre><code>static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     if(remap_pfn_range(vma,
                 vma-&gt;vm_start,
                 virt_to_phys(shm)&gt;&gt;PAGE_SHIFT,
-                vma-&gt;vm_end - vma-&gt;vm_start,
+                PAGE_SIZE,
                 vma-&gt;vm_page_prot))
     {
         return -EAGAIN;
@@ -149,7 +149,7 @@ static ssize_t shm_kernel_driver_write(struct file *filp, const char __user *buf
     return 0;
 }
 </code></pre>
-<p>使用<code>remap_pfn_range</code>函数会将共享内存的物理页面直接添加到用户进程的页表中。但<code>remap_pfn_range</code>要求给整个vma映射物理内存，如果我们只想将这个vma中的一个页映射到内核的buffer上，应该如何做呢？接下来介绍如何直接修改进程的页表实现共享内存。</p>
+<p>使用<code>remap_pfn_range</code>函数会将共享内存的物理页面直接添加到用户进程的页表中。</p>
 <h4 id="_3">改页表</h4>
 <pre><code>static u64 update_pgt(struct vm_area_struct *vma, u64 uva, u64 pfn)
 {
@@ -188,9 +188,11 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
         return 0;
 }
 </code></pre>
-<p>在这里我们实现了走页表与分配页表的逻辑。理解这个代码需要对内核里的一些内存页表术语有所了解。</p>
+<p>除了使用<code>remap_pfn_range</code>的接口，也可以直接自己实现修改页表的逻辑。理解上面这段代码需要对内核里的一些内存页表术语有所了解。</p>
 <p>目前Linux采用了5级页表，如下图所示，从大到小依次为PGD, P4D, PUD, PMD, PTE。</p>
 <p><img alt="" src="../static/five-level-pt.png" /></p>
+<p><code>update_pgt</code>开始从<code>current-&gt;mm</code>中拿到CR3寄存器中的页表基地址，根据uva每一级的值作为寻找下一级页表的索引找到下一级页表页的地址，如果出现了下一级页表页为空的情况，会直接分配一个新的物理页面，并修改上一级页表项指向这个新分配的页面。PTE项上存着我们传入的物理页的地址（除了PTE上存物理地址，其他级页表上都是存着下一级页表的线性虚拟地址）。</p>
+<p>再调用<code>update_pgt</code>之前，需要更新vma的<code>vm_flags</code>，使用<code>VM_PFNMAP</code>让kernel知道这个页面只是一个裸的PFN映射，并没有对应的page结构体。否则在进程结束kernel回收进程内存时，找不到这个新映射的物理页对应的page结构体也没有读到<code>VM_PFNMAP</code>这个flag，kernel会认为这是一个非法的映射，从而报错。</p>
 <h2 id="config">修改内核Config</h2>
 <p>因为我们新增加了一个驱动和源码文件。需要修改Makefile来让这个文件被编译进入内核，并修改Kconfig让用户可以选择这个新增加的共享内存模拟设备的驱动。</p>
 <p>修改完成之后，需要<code>make menuconfig</code>选中新添加的设备。</p>
@@ -228,6 +230,7 @@ int test_shm_mmap(int shm_fd, void *buf)
     return 0;
 }
 </code></pre>
+<p>这里mmap的flag需要设置为MAP_SHARED，不能够是MAP_PRIVATE，因为如果是MAP_PRIVATE并且具有PROT_WRITE权限，Linux将会把这个vma视为cow（copy on write）。当应用程序通过mmap写mmap出来的虚拟地址时，内核会新分配一些物理页映射给这个vma，之后写入的数据不会存在于<code>/dev/shm_kernel_driver</code>维护的buffer中。</p>
 <h2 id="_5">验证</h2>
 <p>用户程序输出:</p>
 <p><img alt="" src="../static/k-u-shm_user_output.png" /></p>
@@ -239,6 +242,7 @@ int test_shm_mmap(int shm_fd, void *buf)
 <p><a href="https://github.com/pengdonglin137/remap_pfn_demo">https://github.com/pengdonglin137/remap_pfn_demo</a></p>
 <p><a href="https://lwn.net/Articles/717293/">https://lwn.net/Articles/717293/</a></p>
 <p><a href="https://lenovopress.lenovo.com/lp1468.pdf">https://lenovopress.lenovo.com/lp1468.pdf</a></p>
+<p><a href="https://insujang.github.io/2017-04-07/linux-kernel-memory-map-operations/">https://insujang.github.io/2017-04-07/linux-kernel-memory-map-operations/</a></p>
   </content>
 </article>
 
