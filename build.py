@@ -93,7 +93,7 @@ def write_index(all_posts: Sequence[frontmatter.Post]):
 
     # Write public index
     posts = filter(lambda p: not p.get('private'), all_posts)
-    path = pathlib.Path("./docs/index.html")
+    path = pathlib.Path("./docs/blogs.html")
     rendered = template.render(posts=posts)
     path.write_text(rendered)
 
