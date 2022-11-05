@@ -17,19 +17,6 @@ jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader('./photos/templates'),
 )
 
-markdown_ = markdown.Markdown(
-    extensions=[
-        "toc",
-        "admonition",
-        "tables",
-        "abbr",
-        "attr_list",
-        "footnotes",
-        "pymdownx.smartsymbols",
-        markdown.extensions.fenced_code.FencedCodeExtension(),
-        pymdownx.magiclink.MagiclinkExtension(hide_protocol=False,)
-    ]
-)
 
 thumbnail_dir = pathlib.Path("./docs/photos/thumbnails")
 photos_dir = pathlib.Path("./docs/photos/photos")
@@ -54,19 +41,6 @@ def parse_source(source: pathlib.Path) -> frontmatter.Post:
     return post
 
 
-def fixup_styles(content: str) -> str:
-    content = content.replace('<table>', '<table class="table">')
-    return content
-
-
-def render_markdown(content: str) -> str:
-    markdown_.reset()
-    content = markdown_.convert(content)
-    content = highlighting.highlight(content)
-    content = fixup_styles(content)
-    return content
-
-
 def process_photo(photo: frontmatter.Post) -> frontmatter.Post:
     photo_path = photo.get('path')
     thumbnail(photo_path)
@@ -80,8 +54,6 @@ def generate_index():
     for source in sources:
         photo = parse_source(source)
         photo = process_photo(photo)
-        #content = render_markdown(photo.content)
-        #photo['stem'] = source.stem
         photos.append(photo)
 
     photos.sort(key=lambda x: x["date"], reverse=True)
