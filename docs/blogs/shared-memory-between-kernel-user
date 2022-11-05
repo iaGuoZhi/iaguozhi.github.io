@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>创建内核态与用户态的共享内存 - iaGuoZhi</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on October 15, 2022</time>
+    · <a href="/blogs">view all posts</a>
+  </aside>
+  <h1>创建内核态与用户态的共享内存</h1>
+  <content>
+    <p>实现内核与应用程序共享内存的常见方法是内核创建一个模拟设备在驱动中实现文件系统接口来提供共享内存，应用程序通过正常的文件系统API读写共享内存。</p>
+<h2 id="_1">内核创建设备</h2>
+<p>在kernel里面，可以创建一个最简单的设备并使用文件系统接口实现共享内存。我选择在<code>drivers/char</code>目录下新增加一个驱动来作为模拟设备提供共享内存。</p>
+<p>增加一个驱动，实际上是一个内核模块，要实现两个函数，分别是作为<code>module_init</code>的<code>shm_kernel_driver_init</code>与作为<code>module_exit</code>的<code>shm_kernel_driver_exit</code>。</p>
+<p><code>shm_kernel_driver_init</code>负责创建设备并添加到dev,sys文件系统中。这个代码比较通用，但是平时很少需要自己写，这里贴出来作为参考:</p>
+<pre><code>static int __init shm_kernel_driver_init(void)
+{
+    /*Allocating Major number*/
+    if((alloc_chrdev_region(&amp;dev, 0, 1, &quot;shm_kernel_driver_dev&quot;)) &lt;0){
+        pr_err(&quot;Cannot allocate major number\n&quot;);
+        return -1;
+    }
+
+    /*Creating cdev structure*/
+    cdev_init(&amp;shm_kernel_driver_cdev,&amp;fops);
+
+    /*Adding character device to the system*/
+    if((cdev_add(&amp;shm_kernel_driver_cdev,dev,1)) &lt; 0){
+        pr_err(&quot;Cannot add the device to the system\n&quot;);
+        goto r_class;
+    }
+
+    /*Creating struct class*/
+    if((dev_class = class_create(THIS_MODULE,&quot;shm_kernel_driver_class&quot;)) == NULL){
+        pr_err(&quot;Cannot create the struct class\n&quot;);
+        goto r_class;
+    }
+
+    /*Creating device*/
+    if((device_create(dev_class,NULL,dev,NULL,&quot;shm_kernel_driver&quot;)) == NULL){
+        pr_err(&quot;Cannot create the Device\n&quot;);
+        goto r_device;
+    }
+
+    /*Init shm*/
+    printk(&quot;----------------INIT SHM------------------\n&quot;);
+    shm = kmalloc(PAGE_SIZE, GFP_KERNEL);
+    printk(&quot;shm kernel va: %llx\tpa: %llx\n&quot;, (u64)shm, (u64)virt_to_phys(shm));
+    *(int *)shm = 0x1111;
+    *(int *)(shm + (1 &lt;&lt; 8)) = 0x2222;
+    printk(&quot;%s %d Content to user: %x %x\n&quot;,
+        __func__, __LINE__, *(int *)shm, *(int *)(shm + (1 &lt;&lt; 8)));
+
+    return 0;
+
+r_device:
+    class_destroy(dev_class);
+r_class:
+    unregister_chrdev_region(dev,1);
+    return -1;
+}
+</code></pre>
+<p>创建设备后，设备会出现在devfs中（/dev/shm_kernel_driver)。</p>
+<p>我在这个函数中还创建并初始化了一个4KB大小的页，它将被用来作为共享内存。</p>
+<p>至于<code>shm_kernel_driver_exit</code>就是释放<code>shm_kernel_driver_init</code>中创建的数据结构。</p>
+<h2 id="_2">内核实现共享内存</h2>
+<pre><code>static struct file_operations fops =
+{
+    .owner      = THIS_MODULE,
+    .open       = shm_kernel_driver_open,
+    .release    = shm_kernel_driver_release,
+    .read       = shm_kernel_driver_read,
+    .write      = shm_kernel_driver_write,
+    .mmap       = shm_kernel_driver_mmap,
+};
+</code></pre>
+<p>我实现了三个文件系统接口让应用程序读写共享内存，分别是read，write，mmap。其中read和write通过内存拷贝的方式让用户访问内核buffer里面的数据，这使用了<code>copy_to_user</code>，<code>copy_from_user</code>。mmap采用两种方式实现分别是内核接口<code>remap_pfn_range</code>和手动改页表 。下面分别进行介绍:</p>
+<h3 id="read-write">Read &amp; Write</h3>
+<pre><code>static ssize_t shm_kernel_driver_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
+{
+    nbytes = copy_to_user(buf, shm, PAGE_SIZE);
+
+    return 0;
+}
+
+static ssize_t shm_kernel_driver_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
+{
+    nbytes = copy_from_user(shm, buf, PAGE_SIZE);
+
+    return 0;
+}
+
+</code></pre>
+<p>read和write直接使用copy_to_user和copy_from_user，这无须多言。</p>
+<h3 id="mmap">Mmap</h3>
+<p>read和write是通过内存拷贝的方式让应用程序访问到内核中的数据，这并不是真正意义上的共享内存。接下来将使用两种方式实现mmap接口，能够让用户直接访问到内核buffer所在的页。</p>
+<h4 id="remap_pfn_range">Remap_pfn_range</h4>
+<pre><code>static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+    if(remap_pfn_range(vma,
+                vma-&gt;vm_start,
+                virt_to_phys(shm)&gt;&gt;PAGE_SHIFT,
+                PAGE_SIZE,
+                vma-&gt;vm_page_prot))
+    {
+        return -EAGAIN;
+    }
+
+    return 0;
+}
+</code></pre>
+<p>使用<code>remap_pfn_range</code>函数会将共享内存的物理页面直接添加到用户进程的页表中。</p>
+<h4 id="_3">改页表</h4>
+<pre><code>static u64 update_pgt(struct vm_area_struct *vma, u64 uva, u64 pfn)
+{
+        pgd_t *pgd;
+        p4d_t *p4d;
+        pud_t *pud;
+        pmd_t *pmd;
+        pte_t *ptep, pte;
+
+        pgd = pgd_offset(current-&gt;mm, uva);
+        printk(&quot;[walk_pgt] pgd: %llx\n&quot;, (unsigned long long)pgd);
+
+        p4d = p4d_alloc(current-&gt;mm, pgd, uva);
+        printk(&quot;[walk_pgt] p4d: %llx\n&quot;, (unsigned long long)p4d);
+
+        pud = pud_alloc(current-&gt;mm, p4d, uva);
+        printk(&quot;[walk_pgt] pud: %llx\n&quot;, (unsigned long long)pud);
+
+        pmd = pmd_alloc(current-&gt;mm, pud, uva);
+        printk(&quot;[walk_pgt] pmd: %llx\n&quot;, (unsigned long long)pmd);
+
+        ptep = pte_offset_kernel(pmd, uva);
+        printk(&quot;[walk_pgt] ptep: %llx\n&quot;, (unsigned long long)ptep);
+        set_pte(ptep, pte_mkspecial(pfn_pte(pfn, vma-&gt;vm_page_prot)));
+        pte = READ_ONCE(*ptep);
+
+        pr_info(&quot;[walk_pgt] uva: %llx pfn: %llx updated pte: %llx\n&quot;,
+                uva, pfn, (u64)pte_val(pte));
+        return 0;
+}
+
+static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+        vma-&gt;vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
+        update_pgt(vma, vma-&gt;vm_start, virt_to_phys(shm) &gt;&gt; PAGE_SHIFT);
+        return 0;
+}
+</code></pre>
+<p>除了使用<code>remap_pfn_range</code>的接口，也可以直接自己实现修改页表的逻辑。理解上面这段代码需要对内核里的一些内存页表术语有所了解。</p>
+<p>目前Linux采用了5级页表，如下图所示，从大到小依次为PGD, P4D, PUD, PMD, PTE。</p>
+<p><img alt="" src="../static/five-level-pt.png" /></p>
+<p><code>update_pgt</code>开始从<code>current-&gt;mm</code>中拿到CR3寄存器中的页表基地址，根据uva每一级的值作为寻找下一级页表的索引找到下一级页表页的地址，如果出现了下一级页表页为空的情况，会直接分配一个新的物理页面，并修改上一级页表项指向这个新分配的页面。PTE项上存着我们传入的物理页的地址（除了PTE上存物理地址，其他级页表上都是存着下一级页表的线性虚拟地址）。</p>
+<p>再调用<code>update_pgt</code>之前，需要更新vma的<code>vm_flags</code>，使用<code>VM_PFNMAP</code>让kernel知道这个页面只是一个裸的PFN映射，并没有对应的page结构体。否则在进程结束kernel回收进程内存时，找不到这个新映射的物理页对应的page结构体也没有读到<code>VM_PFNMAP</code>这个flag，kernel会认为这是一个非法的映射，从而报错。</p>
+<h2 id="config">修改内核Config</h2>
+<p>因为我们新增加了一个驱动和源码文件。需要修改Makefile来让这个文件被编译进入内核，并修改Kconfig让用户可以选择这个新增加的共享内存模拟设备的驱动。</p>
+<p>修改完成之后，需要<code>make menuconfig</code>选中新添加的设备。</p>
+<p>修改示例(需要注意这里的命名需要一致，都是SHM_KERNEL_DRIVER):</p>
+<p>Kconfig</p>
+<pre><code>config SHM_KERNEL_DRIVER
+    tristate &quot;TTY driver for shared memory&quot;
+    #depends on EXPERT &amp;&amp; TTY
+    default y
+    help
+      If you say Y here, the support for expose shared memory.
+
+      If unsure, say N.
+</code></pre>
+<p>Makefile</p>
+<pre><code>obj-$(CONFIG_SHM_KERNEL_DRIVER)     += shm_kernel_driver.o
+
+</code></pre>
+<h2 id="_4">用户程序</h2>
+<p>应用程序很简单，只需要先根据路径名打开文件，再使用fd读写即可。以mmap为例:</p>
+<pre><code>shm_fd = open(&quot;/dev/shm_kernel_driver&quot;, O_RDWR);
+buf = malloc(0x1000);
+
+int test_shm_mmap(int shm_fd, void *buf)
+{
+    printf(&quot;------------------TEST MMAP------------------\n&quot;);
+    buf = mmap(NULL, 0x1000, PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    printf(&quot;Content from kernel:\t%x %x\n&quot;,
+                *(int *)buf, *(int *)(buf + (1 &lt;&lt; 8)));
+
+    *(int *)buf = 0x1111;
+    *(int *)(buf + (1 &lt;&lt; 8)) = 0x2222;
+    printf(&quot;Content to kernel:\t%x %x\n&quot;,
+                *(int *)buf, *(int *)(buf + (1 &lt;&lt; 8)));
+    return 0;
+}
+</code></pre>
+<p>这里mmap的flag需要设置为MAP_SHARED，不能够是MAP_PRIVATE，因为如果是MAP_PRIVATE并且具有PROT_WRITE权限，Linux将会把这个vma视为cow（copy on write）。当应用程序通过mmap写mmap出来的虚拟地址时，内核会新分配一些物理页映射给这个vma，之后写入的数据不会存在于<code>/dev/shm_kernel_driver</code>维护的buffer中。</p>
+<h2 id="_5">验证</h2>
+<p>用户程序输出:</p>
+<p><img alt="" src="../static/k-u-shm_user_output.png" /></p>
+<p>内核输出:</p>
+<p><img alt="" src="../static/k-u-shm_kernel_output.png" /></p>
+<h2 id="_6">参考</h2>
+<p><a href="https://github.com/iaGuoZhi/Virtualization/tree/master/kernel-user-shm">https://github.com/iaGuoZhi/Virtualization/tree/master/kernel-user-shm</a></p>
+<p><a href="https://github.com/iaGuoZhi/linux/tree/shm_kernel_driver">https://github.com/iaGuoZhi/linux/tree/shm_kernel_driver</a></p>
+<p><a href="https://github.com/pengdonglin137/remap_pfn_demo">https://github.com/pengdonglin137/remap_pfn_demo</a></p>
+<p><a href="https://lwn.net/Articles/717293/">https://lwn.net/Articles/717293/</a></p>
+<p><a href="https://lenovopress.lenovo.com/lp1468.pdf">https://lenovopress.lenovo.com/lp1468.pdf</a></p>
+<p><a href="https://insujang.github.io/2017-04-07/linux-kernel-memory-map-operations/">https://insujang.github.io/2017-04-07/linux-kernel-memory-map-operations/</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+</body>
+</html>

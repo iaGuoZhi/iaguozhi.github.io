@@ -8,7 +8,7 @@
   <meta name="author" content="iaGuoZhi">
   <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
 
-  <title>Blog - iaGuoZhi</title>
+  <title>Xv6配置gdb - iaGuoZhi</title>
 
   <!-- Bootstrap core CSS -->
   <link href="/static/bootstrap.min.css" rel="stylesheet">
@@ -21,19 +21,41 @@
   <div class="container">
 
     
-<nav>
-  <h1>Blog posts & articles by iaGuoZhi <a class="rss" href="/feed.xml" target="_blank" title="RSS feed"><i class="fas fa-rss"></i></a></h1>
-  <dl class="posts-list">
-  
-    <a href="/blogs/private/gsoc-review.html">
-      <dt>GSoC 2022 review</dt>
-      <dd>
-        <time>October 04, 2022</time>
-      </dd>
-    </a>
-  
-  </dl>
-</nav>
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on March 26, 2022</time>
+    · <a href="/blogs">view all posts</a>
+  </aside>
+  <h1>Xv6配置gdb</h1>
+  <content>
+    <p>基于ubuntu20.04, Xv6版本: mit 2020</p>
+<h2 id="riscv">安装riscv工具链</h2>
+<p>下载源码</p>
+<pre class="lang-sh">$ git clone https://github.com/riscv/riscv-gnu-toolchain
+</pre>
+<p>安装riscv工具链</p>
+<pre class="lang-sh">./configure --prefix<span class="o">=</span>/opt/riscv
+sudo make linux
+</pre>
+<h2 id="gdb">使用gdb</h2>
+<ol>
+<li>在一个窗口输入<code>make qemu-gdb</code></li>
+<li>在另一个窗口中输入<code>riscv64-unknown-elf-gdb</code>, 进入gdb后，输入<code>target remote localhost:26000</code>, 之后正常使用gdb进行调试。</li>
+<li>如果需要避免每次重新输入<code>target remote localhost:26000</code>,可以在~/.gitinit中加上<code>add-auto-load-safe-path ~/path-to-lab/.gdbinit</code></li>
+</ol>
+<h2 id="gdb_1">gdb推荐命令</h2>
+<ol>
+<li>step (执行一条c指令)</li>
+<li>disas (打印当前行所在函数的汇编信息)</li>
+<li>x/NFU ADDR (打印addr附近内存数据)</li>
+<li><strong>layout</strong> (分割窗口，一边查看代码，一边测试）</li>
+</ol>
+<h2 id="_1">参考</h2>
+<p><a href="https://github.com/riscv-collab/riscv-gnu-toolchain">https://github.com/riscv-collab/riscv-gnu-toolchain</a>
+<a href="https://stackoverflow.com/questions/68611071/how-to-install-riscv64-gdb">https://stackoverflow.com/questions/68611071/how-to-install-riscv64-gdb</a>
+<a href="https://ipads.se.sjtu.edu.cn/courses/ics/tutorials/gdb-ref.txt">https://ipads.se.sjtu.edu.cn/courses/ics/tutorials/gdb-ref.txt</a></p>
+  </content>
+</article>
 
 
     <footer>

@@ -8,7 +8,7 @@
   <meta name="author" content="iaGuoZhi">
   <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
 
-  <title>Blog - iaGuoZhi</title>
+  <title>给虚拟机分区扩容 - iaGuoZhi</title>
 
   <!-- Bootstrap core CSS -->
   <link href="/static/bootstrap.min.css" rel="stylesheet">
@@ -21,19 +21,24 @@
   <div class="container">
 
     
-<nav>
-  <h1>Blog posts & articles by iaGuoZhi <a class="rss" href="/feed.xml" target="_blank" title="RSS feed"><i class="fas fa-rss"></i></a></h1>
-  <dl class="posts-list">
-  
-    <a href="/blogs/private/gsoc-review.html">
-      <dt>GSoC 2022 review</dt>
-      <dd>
-        <time>October 04, 2022</time>
-      </dd>
-    </a>
-  
-  </dl>
-</nav>
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on October 21, 2022</time>
+    · <a href="/blogs">view all posts</a>
+  </aside>
+  <h1>给虚拟机分区扩容</h1>
+  <content>
+    <h2 id="_1">参考</h2>
+<ol>
+<li>
+<p><a href="https://superuser.com/questions/24838/is-it-possible-to-resize-a-qemu-disk-image">https://superuser.com/questions/24838/is-it-possible-to-resize-a-qemu-disk-image</a></p>
+</li>
+<li>
+<p><a href="https://askubuntu.com/questions/24027/how-can-i-resize-an-ext-root-partition-at-runtime">https://askubuntu.com/questions/24027/how-can-i-resize-an-ext-root-partition-at-runtime</a></p>
+</li>
+</ol>
+  </content>
+</article>
 
 
     <footer>
