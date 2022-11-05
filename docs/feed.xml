@@ -10,29 +10,29 @@
   
   <item>
     <title>KVM的ept机制(x86)</title>
-    <link>https://iaguozhi.github.io/x86_tdp</link>
-    <guid>https://iaguozhi.github.io/x86_tdp</guid>
+    <link>https://iaguozhi.github.io/x86-tdp</link>
+    <guid>https://iaguozhi.github.io/x86-tdp</guid>
     <pubDate>Tue, 01 Nov 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
     <title>给虚拟机分区扩容</title>
-    <link>https://iaguozhi.github.io/enlarge_disk</link>
-    <guid>https://iaguozhi.github.io/enlarge_disk</guid>
+    <link>https://iaguozhi.github.io/enlarge-disk</link>
+    <guid>https://iaguozhi.github.io/enlarge-disk</guid>
     <pubDate>Fri, 21 Oct 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
     <title>创建内核态与用户态的共享内存</title>
-    <link>https://iaguozhi.github.io/shared_memory_between_kernel_user</link>
-    <guid>https://iaguozhi.github.io/shared_memory_between_kernel_user</guid>
+    <link>https://iaguozhi.github.io/shared-memory-between-kernel-user</link>
+    <guid>https://iaguozhi.github.io/shared-memory-between-kernel-user</guid>
     <pubDate>Sat, 15 Oct 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
     <title>创建Host kernel与Guest的共享内存</title>
-    <link>https://iaguozhi.github.io/shared_memory_between_host_guest</link>
-    <guid>https://iaguozhi.github.io/shared_memory_between_host_guest</guid>
+    <link>https://iaguozhi.github.io/shared-memory-between-host-guest</link>
+    <guid>https://iaguozhi.github.io/shared-memory-between-host-guest</guid>
     <pubDate>Sun, 11 Sep 2022 12:00:00 Z</pubDate>
   </item>
   
@@ -73,8 +73,8 @@
   
   <item>
     <title>通过Qemu来运行Linux的多种方法</title>
-    <link>https://iaguozhi.github.io/run_linux_on_qemu</link>
-    <guid>https://iaguozhi.github.io/run_linux_on_qemu</guid>
+    <link>https://iaguozhi.github.io/run-linux-on-qemu</link>
+    <guid>https://iaguozhi.github.io/run-linux-on-qemu</guid>
     <pubDate>Fri, 08 Jul 2022 12:00:00 Z</pubDate>
   </item>
   
@@ -100,16 +100,16 @@
   </item>
   
   <item>
-    <title>Xv6 net lab</title>
-    <link>https://iaguozhi.github.io/xv6_net</link>
-    <guid>https://iaguozhi.github.io/xv6_net</guid>
+    <title>Xv6 fs lab</title>
+    <link>https://iaguozhi.github.io/xv6-fs</link>
+    <guid>https://iaguozhi.github.io/xv6-fs</guid>
     <pubDate>Thu, 12 May 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
-    <title>Xv6 fs lab</title>
-    <link>https://iaguozhi.github.io/xv6_fs</link>
-    <guid>https://iaguozhi.github.io/xv6_fs</guid>
+    <title>Xv6 net lab</title>
+    <link>https://iaguozhi.github.io/xv6-net</link>
+    <guid>https://iaguozhi.github.io/xv6-net</guid>
     <pubDate>Thu, 12 May 2022 12:00:00 Z</pubDate>
   </item>
   
@@ -122,15 +122,15 @@
   
   <item>
     <title>给QEMU发送patch的步骤</title>
-    <link>https://iaguozhi.github.io/qemu_patch</link>
-    <guid>https://iaguozhi.github.io/qemu_patch</guid>
+    <link>https://iaguozhi.github.io/qemu-patch</link>
+    <guid>https://iaguozhi.github.io/qemu-patch</guid>
     <pubDate>Tue, 03 May 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
     <title>Xv6 lazy lab</title>
-    <link>https://iaguozhi.github.io/xv6_lazy</link>
-    <guid>https://iaguozhi.github.io/xv6_lazy</guid>
+    <link>https://iaguozhi.github.io/xv6-lazy</link>
+    <guid>https://iaguozhi.github.io/xv6-lazy</guid>
     <pubDate>Wed, 13 Apr 2022 12:00:00 Z</pubDate>
   </item>
   
@@ -143,22 +143,22 @@
   
   <item>
     <title>Xv6 traps lab</title>
-    <link>https://iaguozhi.github.io/xv6_traps</link>
-    <guid>https://iaguozhi.github.io/xv6_traps</guid>
+    <link>https://iaguozhi.github.io/xv6-traps</link>
+    <guid>https://iaguozhi.github.io/xv6-traps</guid>
     <pubDate>Fri, 01 Apr 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
     <title>Xv6 pgtbl lab</title>
-    <link>https://iaguozhi.github.io/xv6_pgtbl</link>
-    <guid>https://iaguozhi.github.io/xv6_pgtbl</guid>
+    <link>https://iaguozhi.github.io/xv6-pgtbl</link>
+    <guid>https://iaguozhi.github.io/xv6-pgtbl</guid>
     <pubDate>Mon, 28 Mar 2022 12:00:00 Z</pubDate>
   </item>
   
   <item>
     <title>Xv6配置gdb</title>
-    <link>https://iaguozhi.github.io/xv6_gdb_setup</link>
-    <guid>https://iaguozhi.github.io/xv6_gdb_setup</guid>
+    <link>https://iaguozhi.github.io/xv6-gdb-setup</link>
+    <guid>https://iaguozhi.github.io/xv6-gdb-setup</guid>
     <pubDate>Sat, 26 Mar 2022 12:00:00 Z</pubDate>
   </item>
   
