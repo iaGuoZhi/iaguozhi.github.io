@@ -63,7 +63,6 @@
        ---
 }
 </code></pre>
-
 <p>Guest:</p>
 <pre><code>/* 1M shared memory */
 static u64 SHM_SZ = 1 &lt;&lt; 20;
@@ -83,7 +82,6 @@ void expose_shm(void)
         kvm_hypercall1(KVM_HC_EXPOSE_SHM, virt_to_phys(shm));
 }
 </code></pre>
-
 <h3 id="hva">(方法一)利用hva</h3>
 <p>第一件事情很简单，第二件事是KVM将gpa转化成Host kernel里面的va。这里有两个方法来实现，第一个是通过get_user_pages 函数，另一个是自己手动走页表，先介绍第一个:</p>
 <pre><code>case KVM_HC_EXPOSE_SHM: {
@@ -117,7 +115,6 @@ void expose_shm(void)
         break;
     }
 </code></pre>
-
 <p>如上面代码所示: 首先调用gfn_to_hva将gpa转化成hva, 再调用<code>get_user_page</code>将这1M内存pin在内存中（防止迁移与swap），此时KVM能够通过page结构体直接访问这块内存的页，为了更加简单的读写共享内存，我们使用<code>vm_map_ram</code>将pages结构体转化成连续的内核虚拟地址，此时Host(KVM)就能够通过这个地址直接访问共享内存。</p>
 <h3 id="2">(方法2)直接走页表</h3>
 <p>上面这个方法是将gpa转化成hva, 再对hva指向的用户态内存进行一些常规操作后在内核态访问，接下来这种方法是直接bypass hva，利用Stage2 page table将gpa直接翻译成hpa。</p>
@@ -136,7 +133,6 @@ void expose_shm(void)
         break;
 }
 </code></pre>
-
 <p>这个方法的关键是走Stage2 page table:
 首先需要拿到Stage2 page table的基地址和页表的级数。然后再逐级走页表，拿到最后的物理地址。</p>
 <pre><code>u64 get_hpa_from_gpa(struct kvm_vcpu *vcpu, gpa_t gpa)
@@ -176,7 +172,6 @@ void expose_shm(void)
         return ret;
 }
 </code></pre>
-
 <h3 id="3">(方法3) 修改页表增加映射</h3>
 <p>上述的两种方法(通过hva和走页表）的前提是这个gpa到hpa的映射是存在于第二级页表的，我们只能够通过在Guest侧指定共享内存的gpa，而无法在Host侧指定共享内存存在于一个特定的hpa。为了解决这个问题，实现hpa first，可以采用第三种方法，在Host侧为Guest传过来的一个尚未有第二级页表映射的gpa映射到我们指定的hpa上。</p>
 <p>Guest:</p>
@@ -203,7 +198,6 @@ void expose_shm(void)
         *(int *)(shm_gva + (1 &lt;&lt; 6)));
 }
 </code></pre>
-
 <p>Guest 不再像之前一样通过kmalloc一段地址得到gpa，并写这块内存，因为如此的话，kvm会在处理第二阶段页表缺页（AMD里面叫做npf)的时候增加第二阶段页表的映射，之后我们再直接改页表就会与KVM自己的映射发生冲突。这里Guest直接拿一个gpa，然后调用hypercall让KVM增加映射。</p>
 <p>Host:</p>
 <pre><code>static void map_shm_ept(struct kvm_vcpu *vcpu, gpa_t gpa, phys_addr_t hpa)
@@ -238,7 +232,6 @@ void expose_shm(void)
     }
 }
 </code></pre>
-
 <pre><code>ase KVM_HC_EXPOSE_SHM: {
         u64 gpa = a0;
         void *shm_k_addr;
@@ -260,7 +253,6 @@ void expose_shm(void)
         break;
     }
 </code></pre>
-
 <p>Host在hypercall中将gpa和一个hpa的映射添加到第二阶段页表中，这里我使用了一个任意的hpa，也可以自己指定一个具体的hpa。</p>
 <h2 id="_3">共享内存验证</h2>
 <p>上面三种方案的代码均通过验证，可以直接使用。其实第一种方案与硬件架构无关，第二三种方案因为要读写页表，与硬件相关，我实现的是x86架构的。</p>

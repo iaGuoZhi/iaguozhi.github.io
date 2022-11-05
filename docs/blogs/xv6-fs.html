@@ -112,7 +112,6 @@ bmap(struct inode *ip, uint bn)
   panic(&quot;bmap: out of range&quot;);
 }
 </code></pre>
-
 <p>还要考虑的是在释放一个inode的时候，要递归释放这个新增加的"doubly-indirect" block。
 代码如下:</p>
 <pre><code>if(ip-&gt;addrs[NDIRECT+1]){
@@ -134,7 +133,6 @@ bmap(struct inode *ip, uint bn)
   ip-&gt;addrs[NDIRECT + 1] = 0;
 }
 </code></pre>
-
 <h2 id="symbolic-link">实现symbolic link</h2>
   </content>
 </article>

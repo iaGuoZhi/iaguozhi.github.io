@@ -31,14 +31,12 @@
     <p>基于ubuntu20.04, Xv6版本: mit 2020</p>
 <h2 id="riscv">安装riscv工具链</h2>
 <p>下载源码</p>
-<pre><code class="sh">$ git clone https://github.com/riscv/riscv-gnu-toolchain
-</code></pre>
-
+<pre class="lang-sh">$ git clone https://github.com/riscv/riscv-gnu-toolchain
+</pre>
 <p>安装riscv工具链</p>
-<pre><code class="sh">./configure --prefix=/opt/riscv
+<pre class="lang-sh">./configure --prefix<span class="o">=</span>/opt/riscv
 sudo make linux
-</code></pre>
-
+</pre>
 <h2 id="gdb">使用gdb</h2>
 <ol>
 <li>在一个窗口输入<code>make qemu-gdb</code></li>

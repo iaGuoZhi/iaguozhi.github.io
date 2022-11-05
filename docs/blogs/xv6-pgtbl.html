@@ -57,7 +57,6 @@ Xv6中用到的权限位包括PTE_V,PTE_R,PTE_W,PTE_X,PTE_U。</p>
 .. .. ..510: pte 0x0000000021fdd807 pa 0x0000000087f76000
 .. .. ..511: pte 0x0000000020001c0b pa 0x0000000080007000
 </code></pre>
-
 <p>由于Xv6中已经有递归释放页表的函数进行参考，这个任务比较简单。我实现该任务的主要函数如下：
 因为Xv6 每个页表中有512个entry，因此这个函数会遍历512次，访问每个entry。只有entry中PTE_V为1的时候，才表明当前entry是有效的。由于最有一级页表的flag会设置PTE_R等权限位(不存在同时不能够读，写，执行的物理页)，因此可以通过这些flag判断当前是否是最后一级页表，如果不是，则递归打印当前页表项所指向的次级页表。</p>
 <pre><code>void
@@ -85,19 +84,16 @@ static __vmprint(pagetable_t pagetable, int level)
   return;
 }
 </code></pre>
-
 <h2 id="_2">每个进程一个内核页表(困难)</h2>
 <p>目前，Xv6在内核态只有一个kernel page table。并且kernel page table的映射方式是direct mapping（va=pa）。而Xv6每个进程都拥有一个独立的用户态页表，此时如果内核想要使用一个来自进程用户态的指针，内核需要以软件的方式走一次该进程的用户态页表，我们需要在现在和后面的任务中实现内核对于用户态指针的直接访问。</p>
 <p>现在这个任务需要实现的是让每个进程都拥有一个独立的内核页表。</p>
 <h3 id="_3">初始化内核页表</h3>
 <p>首先在进程的结构体里面添加kenrel pagetable的字段:</p>
-<pre><code class="c">pagetable_t kpagetable;       // Kernel page table
-</code></pre>
-
+<pre class="lang-c"><span class="n">pagetable_t</span><span class="w"> </span><span class="n">kpagetable</span><span class="p">;</span><span class="w">       </span><span class="c1">// Kernel page table</span>
+</pre>
 <p>kpagetable将在allocproc函数中进行初始化。</p>
 <pre><code>p-&gt;kpagetable = kvminit_perproc();
 </code></pre>
-
 <p><code>kvminit_perproc()</code> 将对进程的内核态页表进行初始化：包括映射uart寄存器，virtio disk寄存器，PLIC终端控制器，内核代码段，数据段，trampoline页。<code>kvminit_perproc</code>和<code>kvminit</code>的区别是没有映射CLINT中断寄存器，为什么没有映射在下个任务的讲解会提到。</p>
 <pre><code>/*
  * create a kernel page table for each process.
@@ -132,7 +128,6 @@ kvminit_perproc(void)
   return p;
 }
 </code></pre>
-
 <p>在allocproc创建进程的过程中还需要进行内核栈的分配与映射。注意这里不仅需要在进程私有的内核页表中建立va到pa的映射，还需要在进程共享的内核页表（在调度的时候使用到）中建立栈va到pa的映射。后面这一点是我在这个任务中花时间最多的一点。如果没有建立后者的映射，第一个用户程序刚启动的时候就会在调度器中跑飞，很难通过gdb或者打印的方式找到原因。</p>
 <pre><code>  // Allocate a page for the process's kernel stack.
   // Map it high in memory, followed by an invalid guard page.
@@ -145,7 +140,6 @@ kvminit_perproc(void)
   kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   p-&gt;kstack = va;
 </code></pre>
-
 <h3 id="_4">更改调度器</h3>
 <p>在每个进程拥有独立的内核页表之前，调度器在内核态切换进程的时候不需要切换页表。而现在每个进程拥有不同的内核页表，自然调度器也需要有对应的改动。
 当选中一个进程执行的时候，需要通过将该进程的内核态页表基地址写入<code>satp</code>寄存器(satp 全名supervisor address translation and protection, 它保存页表基地址)。
@@ -158,14 +152,12 @@ kvminit_perproc(void)
   w_satp(MAKE_SATP(kernel_pagetable));
   sfence_vma();
 </code></pre>
-
 <h3 id="_5">回收进程页表</h3>
 <p>此时进程的内核态页表指向的物理地址分为两种：一种是与其他进程共享，比如uart寄存器，virtio disk寄存器，这些物理地址被所有的进程共同访问。另外一种是只有该进程能够访问，这就是进程的内核栈。
 在回收进程页表的时候需要对这两种情况区别对待, 第一种只需要回收页表内存，不能够free页表指向的物理内存，第二种则需要free页表指向的物理页。</p>
 <p>可以使用<code>uvmunmap</code>函数中的<code>do_free</code>参数来满足我们的需求。对于内核栈内存，我们使用</p>
 <pre><code>  uvmunmap(kernel_pagetable, va, npages, 1);
 </code></pre>
-
 <p>来回收页表，注意这里回收的是内核公共页表上进程内核栈对应的页表以及相应的物理内存。如此对于进程内核页表上的页表可以统一以不回收页表指向的物理页的方式对所有页表进行回收，简化代码逻辑。具体代码如下：</p>
 <pre><code>// Free kernel memory page table,
 // not free physical pages
@@ -185,7 +177,6 @@ kvmfree(pagetable_t pagetable)
   kfree((void*)pagetable);
 }
 </code></pre>
-
 <h2 id="copyincopyinstr">简化copyin/copyinstr(困难)</h2>
 <p>上一个任务和这个任务的目的是让内核可以直接读用户指针。在上一个任务中我们已经为每一个进程创建了一个独立的内核态页表。在现在这个任务中我们需要在进程的内核态页表中映射上用户态页表中va到pa的映射。</p>
 <p>由于此时内核态页表同时存在用户态虚拟地址与内核虚拟地址，我们需要保障这两种虚拟地址不会发生重叠。</p>
@@ -229,7 +220,6 @@ uvmcopy(pagetable_t old, pagetable_t new, pagetable_t new_kernel, uint64 sz)
   return -1;
 }
 </code></pre>
-
 <h3 id="exec">更改exec</h3>
 <p>和fork一样，exec也需要为当前进程创建一个新的页表。</p>
 <pre><code>  // Alloc new user page table
@@ -239,7 +229,6 @@ uvmcopy(pagetable_t old, pagetable_t new, pagetable_t new_kernel, uint64 sz)
   if((kpagetable = kvminit_perproc()) == 0)
     goto bad;
 </code></pre>
-
 <p>我们应当在每次用户页表发生更改的时候将更改同步到该进程的内核态页表中。exec有两处对用户态页表建立的新映射，第一次是加载可执行文件到内存中时, 第二次是在为进程分配用户栈时。我们需要在这两处地方都将对应va到pa的映射写入内核态页表中。</p>
 <p>通过<code>uvmalloc</code>函数可以实现在给用户态页表建立映射的时候，将相同映射也写入内核态页表中。</p>
 <pre><code>// Allocate PTEs and physical memory to grow process from oldsz to
@@ -281,12 +270,10 @@ uvmalloc(pagetable_t u_pagetable, pagetable_t k_pagetable, uint64 oldsz, uint64 
   return newsz;
 }
 </code></pre>
-
 <p>此时，当前进程的内核态页表中不仅有<code>kvminit_perproc</code>中指向内核物理地址的映射，也有和用户态页表指向用户态物理地址的映射。但是此时还不意味着我们现在的内核态页表就能够被写入satp寄存器来使用了(我之前没有仔细考虑这里，导致debug时间大幅增加)。如果我们将此时的内核态页表写入satp寄存器继续执行会遇到什么呢？程序根本不能够访问到当前exec()函数中分配在栈上的变量。因为<strong>新的内核态页表没有从旧的内核态页表中拷贝指向当前内核栈的物理页的页表</strong>。因此还需要一行代码:</p>
 <pre><code>  // Map origin kernel stack
   kvmmap_perproc(kpagetable, p-&gt;kstack, kvmpa(p-&gt;kstack), PGSIZE, PTE_R | PTE_W);
 </code></pre>
-
 <p>现在，在exec函数的最后，我们可以使用新的内核态页表了：</p>
 <pre><code>  // Commit kernel page table
   oldkpagetable = p-&gt;kpagetable;
@@ -295,7 +282,6 @@ uvmalloc(pagetable_t u_pagetable, pagetable_t k_pagetable, uint64 oldsz, uint64 
   sfence_vma();
   proc_freekpagetable(oldkpagetable);
 </code></pre>
-
 <p>通过将新的内核态页表写入satp寄存器，它就正式被派上用场了，这时候我们还需要对旧的内核页表进行回收。</p>
 <h3 id="sbrk">更改sbrk</h3>
 <p>用户程序可以通过sbrk来增加用户态地址空间。我们需要将sbrk中对于用户态页表的修改同步到内核态页表中。</p>
@@ -321,13 +307,11 @@ growproc(int n)
   return 0;
 }
 </code></pre>
-
 <p><code>growproc</code>会调用<code>uvmalloc</code>，<code>uvmalloc</code>的代码我们已经展示过了。里面有一个细节跟sbrk有关：</p>
 <pre><code>  // user process memory size limit
   if(newsz &gt; USER_VA_STOP)
     return 0;
 </code></pre>
-
 <p>这里会检查sbrk修改后的用户态地址空间大小，如果超过了限制，就直接返回。这是为了防止内核页表上用户态地址空间与内核态地址空间出现重叠的情况。
 <code>USER_VA_STOP</code>在我的实现中是<code>0x07000000L</code>, 它大于<code>CLINT</code>直接映射的虚拟地址<code>0x2000000L</code>。如此进程能够拥有更大的用户态地址空间，因为实际上<code>CLINT</code>在Xv6中只与处理timer中断有关，而处理timer中断时用到的页表是内核公共的页表，因此进程的内核页表上不需要映射<code>CLINT</code>寄存器，于是<code>USER_VA_STOP</code>即使大于<code>CLINT</code>，在进程内核页表上用户态地址空间与内核地址空间也不会发生冲突。</p>
 <h2 id="_6">总结</h2>

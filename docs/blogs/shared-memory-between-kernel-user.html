@@ -80,7 +80,6 @@ r_class:
     return -1;
 }
 </code></pre>
-
 <p>创建设备后，设备会出现在devfs中（/dev/shm_kernel_driver)。</p>
 <p>我在这个函数中还创建并初始化了一个4KB大小的页，它将被用来作为共享内存。</p>
 <p>至于<code>shm_kernel_driver_exit</code>就是释放<code>shm_kernel_driver_init</code>中创建的数据结构。</p>
@@ -95,7 +94,6 @@ r_class:
     .mmap       = shm_kernel_driver_mmap,
 };
 </code></pre>
-
 <p>我实现了三个文件系统接口让应用程序读写共享内存，分别是read，write，mmap。其中read和write通过内存拷贝的方式让用户访问内核buffer里面的数据，这使用了<code>copy_to_user</code>，<code>copy_from_user</code>。mmap采用两种方式实现分别是内核接口<code>remap_pfn_range</code>和手动改页表 。下面分别进行介绍:</p>
 <h3 id="read-write">Read &amp; Write</h3>
 <pre><code>static ssize_t shm_kernel_driver_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
@@ -113,7 +111,6 @@ static ssize_t shm_kernel_driver_write(struct file *filp, const char __user *buf
 }
 
 </code></pre>
-
 <p>read和write直接使用copy_to_user和copy_from_user，这无须多言。</p>
 <h3 id="mmap">Mmap</h3>
 <p>read和write是通过内存拷贝的方式让应用程序访问到内核中的数据，这并不是真正意义上的共享内存。接下来将使用两种方式实现mmap接口，能够让用户直接访问到内核buffer所在的页。</p>
@@ -132,7 +129,6 @@ static ssize_t shm_kernel_driver_write(struct file *filp, const char __user *buf
     return 0;
 }
 </code></pre>
-
 <p>使用<code>remap_pfn_range</code>函数会将共享内存的物理页面直接添加到用户进程的页表中。</p>
 <h4 id="_3">改页表</h4>
 <pre><code>static u64 update_pgt(struct vm_area_struct *vma, u64 uva, u64 pfn)
@@ -172,7 +168,6 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
         return 0;
 }
 </code></pre>
-
 <p>除了使用<code>remap_pfn_range</code>的接口，也可以直接自己实现修改页表的逻辑。理解上面这段代码需要对内核里的一些内存页表术语有所了解。</p>
 <p>目前Linux采用了5级页表，如下图所示，从大到小依次为PGD, P4D, PUD, PMD, PTE。</p>
 <p><img alt="" src="./static/five-level-pt.png" /></p>
@@ -192,12 +187,10 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
 
       If unsure, say N.
 </code></pre>
-
 <p>Makefile</p>
 <pre><code>obj-$(CONFIG_SHM_KERNEL_DRIVER)     += shm_kernel_driver.o
 
 </code></pre>
-
 <h2 id="_4">用户程序</h2>
 <p>应用程序很简单，只需要先根据路径名打开文件，再使用fd读写即可。以mmap为例:</p>
 <pre><code>shm_fd = open(&quot;/dev/shm_kernel_driver&quot;, O_RDWR);
@@ -217,7 +210,6 @@ int test_shm_mmap(int shm_fd, void *buf)
     return 0;
 }
 </code></pre>
-
 <p>这里mmap的flag需要设置为MAP_SHARED，不能够是MAP_PRIVATE，因为如果是MAP_PRIVATE并且具有PROT_WRITE权限，Linux将会把这个vma视为cow（copy on write）。当应用程序通过mmap写mmap出来的虚拟地址时，内核会新分配一些物理页映射给这个vma，之后写入的数据不会存在于<code>/dev/shm_kernel_driver</code>维护的buffer中。</p>
 <h2 id="_5">验证</h2>
 <p>用户程序输出:</p>
