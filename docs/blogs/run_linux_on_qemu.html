@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>通过Qemu来运行Linux的多种方法 - iaGuoZhi</title>
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="/static/pygments.css" rel="stylesheet">
+
+  
+<meta property="og:title" content="通过Qemu来运行Linux的多种方法 - iaGuoZhi">
+<meta property="twitter:title" content="通过Qemu来运行Linux的多种方法 - iaGuoZhi">
+
+
+
+
+
+
+
+<meta property="og:url" content="https://blog.thea.codes/run_linux_on_qemu">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@theavalkyrie">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on July 08, 2022</time>
+    · <a href="/blogs">view all posts</a>
+  </aside>
+  <h1>通过Qemu来运行Linux的多种方法</h1>
+  <content>
+    <h1 id="_1">面向服务器</h1>
+<h2 id="libvirt">通过libvirt(最简单)</h2>
+<p>使用libvirt提供的cli来起虚拟机, 本质上还是使用qemu来运行虚拟机的，libvirt是一套比较好操作的脚手架。</p>
+<p>通过libvirt可以使用已经下载好的kernel镜像文件进行启动，也可以直接从网络中拉取kernel镜像（这个是最方便的，只需要执行命令即可), 这里给出通过网络拉取镜像的一个例子，可以直接复制下面的命令来启动一个虚拟机:</p>
+<pre><code>virt-install \
+--name falcon-1 \
+--ram 1024 \
+--disk path=/var/lib/libvirt/images/falcon1.img,size=8 \
+--vcpus 1 \
+--virt-type kvm \
+--os-type linux \
+--os-variant ubuntu18.04 \
+--graphics none \
+--location 'http://archive.ubuntu.com/ubuntu/dists/bionic/main/installer-amd64/' \
+--extra-args &quot;console=tty0 console=ttyS0,115200n8&quot;
+</code></pre>
+<p>这个例子中安装完成(Software选择OpenSSH Server)后，通过</p>
+<pre><code>virsh domifaddr falcon-1
+ssh cap@192.168.122.169
+</code></pre>
+<p>进入Ubuntu guest, 不能够通过host name ssh。</p>
+<p>通过libvirt启动的虚拟机，在启动成功之后可以通过virsh cli进行管理.
+比如:</p>
+<pre><code>virsh list  // 查看所有虚拟机
+virsh domifaddr $domain   // 查看虚拟机的ip
+virsh console $domain    // 进入虚拟机的console, 如果console没有输出，是需要虚拟机打开console 服务
+virsh destroy $domain    // 关闭虚拟机，并不会删除磁盘文件，能够再次重启
+virsh dumpxml $domain &gt; a.xml  // dump出虚拟机的xml文件
+virsh define a.xml      // 修改虚拟机参数后，定义虚拟机
+virsh start $domain --console    // 启动虚拟机
+</code></pre>
+<p>其中dumpxml格外有用，能够帮助我们更改虚拟机的配置再启动。</p>
+<p>比如在下面这段xml文件中，如果没有<code>&lt;driver name="qemu"/&gt;</code>，虚拟机使用的virtio-net backend就是默认的运行在内核态的vhost，加入了之后就是Qemu。</p>
+<pre><code>&lt;devices&gt;
+      &lt;interface type='network'&gt;
+      &lt;mac address='02:ca:fe:fa:ce:01'/&gt;   
+      &lt;source network='default' bridge='virbr0'/&gt;                
+      &lt;target dev='vnet0'/&gt;   
+      &lt;model type='virtio'/&gt;
+             &lt;driver name=&quot;qemu&quot;/&gt;
+      &lt;alias name='net0'/&gt;  
+      &lt;address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/&gt;
+      &lt;/interface&gt;                                                                                     
+&lt;/devices&gt;
+</code></pre>
+<h2 id="qemu-system-x86_64">通过qemu-system-x86_64</h2>
+<p>首先下载好虚拟机操作系统的iso文件, 这里使用archlinux的iso文件:</p>
+<pre><code>./qemu/build/qemu-system-x86_64 \
+    -cdrom /path/to/archlinux-2021.07.01-x86_64.iso \
+    -cpu host \
+    -enable-kvm \
+    -m 8G \
+    -smp 8 \
+    -nographic \
+</code></pre>
+<h2 id="_2">启动之后</h2>
+<p>启动之后建议进行几个设置:</p>
+<ol>
+<li>在系统安装过程中选中OpenSSH Server进行安装，如此才能够通过ssh进行连接</li>
+<li>开启Console, 在虚拟机(Ubuntu)的<code>/etc/default/grub</code>中修改<code>GRUB\_CMDLINE\_LINUX\_DEFAULT</code>为
+   <code>GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyS0,115200n8"</code>
+这样可以使得即使ssh无法连接，依然能够通过console进入虚拟机。</li>
+<li>设置grub，依照下面代码修改<code>/etc/default/grub</code>可以使得在console中能够选择kernel再启动，对于需要经常修改kernel的时候很方便:</li>
+</ol>
+<pre><code>GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=10
+</code></pre>
+<p>修改之后需要通过<code>sudo update-grub</code>更新grub。</p>
+<h1 id="_3">面向嵌入式</h1>
+<p>嵌入式环境比较复杂，需要自己制作intrd(initramfs, 是虚拟机的rootfs，在上面用Ubuntu或者Arch发行版启动虚拟机中，发行版已经准备了非常大的rootfs文件，因此不用自己制作)，并用Linux源码编译kernel.</p>
+<p>首先展示一个使用qemu启动bzImage的命令，这个虚拟机拥有一个disk磁盘与网络:</p>
+<pre><code>../qemu/build/qemu-system-x86_64 \
+    -cpu qemu64 -smp 2 -m 2048M \
+    -kernel ./linux/arch/x86_64/boot/bzImage \
+    -append &quot;console=ttyS0 nokaslr root=/dev/vda rootwait&quot; \
+    -initrd ./initramfs/initramfs.cpio.gz -nographic \
+    -device virtio-blk,drive=image \
+    -drive if=none,id=image,file=virtio_blk.img,format=raw \
+    -netdev user,id=net0 -device virtio-net-pci,netdev=net0
+</code></pre>
+<p>接着结合上面的命令逐个参数进行介绍:</p>
+<h2 id="bzimage">bzImage</h2>
+<p>在kernel源码中使用make命令即可编程出来</p>
+<h2 id="initrd">initrd</h2>
+<p>一般来说，桌面，服务器中的Linux都需要使用initrd(initramfs)。部分嵌入式系统也会使用initramfs，有时甚至直接将initramfs作为最后系统运行的rootfs。</p>
+<p>initramfs的作用是在系统引导过程中，让内核能够正确驱动rootfs所在的设备。</p>
+<p>initramfs可以使用几种方式来制作:</p>
+<ul>
+<li>busybox, <a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">stdrc</a>中已经有非常详细的介绍。</li>
+<li>buildroot, 比起busybox更加现代。</li>
+</ul>
+<p>如果不想制作initrd文件，可以使用发行版提供的image来启动虚拟机:</p>
+<pre><code>qemu-system-x86_64 -cpu host -enable-kvm -smp 4 \
+    -m 1G \
+    -kernel ~/repos/linux/arch/x86/boot/bzImage \
+    -append &quot;console=ttyS0 root=/dev/sda1&quot; \
+    -hda ./debian.img \
+</code></pre>
+<h2 id="block-image">block image</h2>
+<p>用户在initramfs中作的修改并不会被保存下来，如果需要让应用程序能够持久化保存数据，可以添加一个block image。</p>
+<p>block image 可以通过<code>dd</code>来制作</p>
+<pre><code>dd if=/dev/zero of=virtio_blk.img bs=1M count=1024
+mkfs.ext4 virtio_blk.img
+</code></pre>
+<p>kernel启动之后，可以通过<code>blkid</code>指令看到这个block设备，通常是<code>/dev/vda</code>, 此时可以使用</p>
+<pre><code>mount /dev/vda /mnt
+</code></pre>
+<p>来挂载这个设备。</p>
+<h2 id="netdev">netdev</h2>
+<p>通过这个参数可以为虚拟机添加网络支持。</p>
+<p>上面使用到的命令</p>
+<pre><code>-netdev user,id=net0 -device virtio-net-pci,netdev=net0
+</code></pre>
+<p>是使用qemu作为virtio-net的backend，如果想使用vhost则需要使用tap设备:</p>
+<pre><code>-netdev tap,id=br0,vhost=on,script=no,downscript=no, -device virtio-net-pci,netdev=br0
+</code></pre>
+<p>启动的虚拟机并不会默认拥有ip地址，需要使用udhcpc来配置网络，具体可以参考<a href="https://blog.csdn.net/lee244868149/article/details/49249887">dhcp</a>。</p>
+<p>配置好ip好，添加dns nameserver:</p>
+<pre><code>echo &quot;nameserver 8.8.8.8&quot; &gt; /etc/resolv.conf
+</code></pre>
+<p>更换Ubuntu apt 源</p>
+<pre><code>sed -i 's/archive.ubuntu.com/mirror.sjtu.edu.cn/g' /etc/apt/sources.list
+</code></pre>
+<h2 id="chroot">chroot</h2>
+<p>有些时候，我们可能觉得initrd中提供的命令不够，此时我们可以使用主流Linux发行版制作的rootfs来作为我们最后的rootfs(此时甚至可以在kernel中使用Ubuntu的apt安装程序):</p>
+<p>以Ubuntu为例，首先下载Ubuntu 20.04的<a href="http://cdimage.ubuntu.com/ubuntu-base/releases/20.04/release/ubuntu-base-20.04.1-base-amd64.tar.gz">rootfs</a> 文件，
+接着在制作block image的时候使用以下指令</p>
+<pre><code>dd if=/dev/zero of=virtio_blk.img bs=1M count=1024
+mkfs.ext4 virtio_blk.img
+mkdir -p tmpfs
+sudo mount -t ext4 virtio_blk.img tmpfs/ -o loop
+sudo cp -r ubuntu20-rootfs/* tmpfs/
+sudo sync
+sudo umount tmpfs
+rmdir tmpfs
+</code></pre>
+<p>如此在mount <code>/dev/vda</code>之后能够使用<code>chroot</code>来更改root文件夹位置, 之后就能够直接使用Ubuntu 20.04提供的用户态程序。</p>
+<h2 id="gdb">gdb</h2>
+<p>直接使用一个bzImage来启动Linux有一个好处，就是可以使用<a href="https://www.kernel.org/doc/Documentation/dev-tools/gdb-kernel-debugging.rst">gdb</a>来对内核进行调试，此时需要使用<code>nokaslr</code>启动参数关闭kaslr。</p>
+<h2 id="_4">启动之后</h2>
+<p>使用bzImage+initrd启动时，虚拟机默认不会拥有disk和net，需要根据上述说明开启，可以选择在initramfs中的init程序来执行这些需要开启的操作。</p>
+<p>以我BusyBox中的init程序为例:</p>
+<pre><code>#!/bin/sh
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs devtmpfs /dev
+
+ifconfig eth0 up
+udhcpc
+
+echo -e &quot;\nBoot took $(cut -d' ' -f1 /proc/uptime) seconds\n&quot;
+
+exec /bin/sh
+</code></pre>
+<p>就在启动过程中，开启了网络并动态获取了ip。</p>
+<h1 id="_5">参考</h1>
+<p><a href="https://graspingtech.com/creating-virtual-machine-virt-install/">https://graspingtech.com/creating-virtual-machine-virt-install/</a></p>
+<p><a href="https://wiki.qemu.org/Hosts/Linux">https://wiki.qemu.org/Hosts/Linux</a></p>
+<p><a href="https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/">https://stdrc.cc/post/2020/09/12/minimal-linux-with-busybox/</a></p>
+<p><a href="https://blog.csdn.net/lee244868149/article/details/49249887">https://blog.csdn.net/lee244868149/article/details/49249887</a></p>
+<p><a href="https://docs.google.com/document/d/1qBcZrrnuU-ogKE2qcP5NFoccioWZAMST_SDfE6FDugk/edit#">https://docs.google.com/document/d/1qBcZrrnuU-ogKE2qcP5NFoccioWZAMST_SDfE6FDugk/edit#</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+</body>
+</html>

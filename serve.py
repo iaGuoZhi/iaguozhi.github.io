@@ -1,21 +1,21 @@
 import livereload
 
-import build
+import build_blogs
 import build_photos
 
 
-def rebuild_blog():
-    build.main()
+def rebuild_blogs():
+    build_blogs.main()
 
 
-def rebuild_photo():
+def rebuild_photos():
     build_photos.main()
 
 
 server = livereload.Server()
 server.setHeader("Cache-Control", "no-store")
-server.watch("srcs/*.md", rebuild_blog)
-server.watch("photos/*.md", rebuild_photo)
+server.watch("blogs/*.md", rebuild_blogs)
+server.watch("photos/*.md", rebuild_photos)
 server.watch("docs/static/**/*.js")
 server.watch("docs/static/**/*.css")
 server.watch("docs/static/**/*.png")

@@ -14,7 +14,7 @@ import PIL.Image
 THUMBNAIL_SIZE = (1024, 768)
 
 jinja_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader('./photos/templates'),
+    loader=jinja2.FileSystemLoader('templates/photos'),
 )
 
 
