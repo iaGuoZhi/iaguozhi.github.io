@@ -10,7 +10,7 @@ date: 2022-09-11
 首先简要介绍下QEMU/KVM的内存虚拟化：
 在硬件虚拟化中，Guest运行时实际上有两层页表，第一层是将Guest内部的va(gva)翻译成pa(gpa)，第二层是将Guest的pa(gpa)翻译成Host的pa(hpa）。
 
-![](../static/arm_stage2_tr.png)
+![](./static/arm_stage2_tr.png)
 
 看了上面这个图，我们可能会认为内存虚拟化已经很完备了，但其实我们还需要有另一个地址： hva。这是因为
 
@@ -20,7 +20,7 @@ date: 2022-09-11
 
 这里贴出一张LoyenWang制作的图来表示这四种地址的关系：
 
-![](../static/gva_gpa_hva_hpa.png)
+![](./static/gva_gpa_hva_hpa.png)
 
 因此QEMU/KVM中现有的机制允许Host中的QEMU访问Guest的物理内存，也就是说QEMU和Guest是天然共享着内存的。这篇文章将会介绍如何进一步让KVM(也就是Host kernel)和Guest之间共享一块内存，实现这样一套机制很有意义，因为Host中大部分有价值的信息以及代码都是在kernel中的，Host kernel能够利用这块共享内存帮助虚拟机提供更多信息或者做更多的事情。
 
@@ -276,8 +276,8 @@ Host在hypercall中将gpa和一个hpa的映射添加到第二阶段页表中，�
 上面三种方案的代码均通过验证，可以直接使用。其实第一种方案与硬件架构无关，第二三种方案因为要读写页表，与硬件相关，我实现的是x86架构的。
 
 启动虚拟机，可以在Host的dmesg和Guest的启动log中检查共享内存是否建立成功:
-![](../static/kvm_to_guest.png)
-![](../static/guest_probe_2.png)
+![](./static/kvm_to_guest.png)
+![](./static/guest_probe_2.png)
 
 ## 其他
 

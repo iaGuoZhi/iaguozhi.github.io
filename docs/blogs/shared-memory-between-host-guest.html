@@ -10,31 +10,11 @@
 
   <title>创建Host kernel与Guest的共享内存 - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="创建Host kernel与Guest的共享内存 - iaGuoZhi">
-<meta property="twitter:title" content="创建Host kernel与Guest的共享内存 - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/shared_memory_between_host_guest">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -52,7 +32,7 @@
 <p>这篇文章会介绍如何在QEMU/KVM 虚拟化中为Guest kernel和Host kernel创建一块shared memory。有了共享内存之后可以做很多用意思的事情，比如共享调度信息，共享IO队列等等。</p>
 <p>首先简要介绍下QEMU/KVM的内存虚拟化：
 在硬件虚拟化中，Guest运行时实际上有两层页表，第一层是将Guest内部的va(gva)翻译成pa(gpa)，第二层是将Guest的pa(gpa)翻译成Host的pa(hpa）。</p>
-<p><img alt="" src="../static/arm_stage2_tr.png" /></p>
+<p><img alt="" src="./static/arm_stage2_tr.png" /></p>
 <p>看了上面这个图，我们可能会认为内存虚拟化已经很完备了，但其实我们还需要有另一个地址： hva。这是因为</p>
 <ul>
 <li>Host 不会给 Guest的gpa直接分配hpa，而是为每一个gpa 所在的memory slot分配对应的hva。 在发生stage2 page fault的时候再根据gpa对应的hva属性进行hpa的分配</li>
@@ -60,7 +40,7 @@
 <li>Host(QEMU)能够通过hva和gpa之间的关系管理Guest内存信息</li>
 </ul>
 <p>这里贴出一张LoyenWang制作的图来表示这四种地址的关系：</p>
-<p><img alt="" src="../static/gva_gpa_hva_hpa.png" /></p>
+<p><img alt="" src="./static/gva_gpa_hva_hpa.png" /></p>
 <p>因此QEMU/KVM中现有的机制允许Host中的QEMU访问Guest的物理内存，也就是说QEMU和Guest是天然共享着内存的。这篇文章将会介绍如何进一步让KVM(也就是Host kernel)和Guest之间共享一块内存，实现这样一套机制很有意义，因为Host中大部分有价值的信息以及代码都是在kernel中的，Host kernel能够利用这块共享内存帮助虚拟机提供更多信息或者做更多的事情。</p>
 <h2 id="_2">共享内存实现</h2>
 <p>我们将让Guest物理内存的8G&lt;-&gt;8G + 1M这1M的内存共享给Host kernel。这需要更改Host kernel, Guest kernel的代码。具体代码可以在<a href="https://github.com/iaGuoZhi/linux">Github</a>上看到。</p>
@@ -83,6 +63,7 @@
        ---
 }
 </code></pre>
+
 <p>Guest:</p>
 <pre><code>/* 1M shared memory */
 static u64 SHM_SZ = 1 &lt;&lt; 20;
@@ -102,6 +83,7 @@ void expose_shm(void)
         kvm_hypercall1(KVM_HC_EXPOSE_SHM, virt_to_phys(shm));
 }
 </code></pre>
+
 <h3 id="hva">(方法一)利用hva</h3>
 <p>第一件事情很简单，第二件事是KVM将gpa转化成Host kernel里面的va。这里有两个方法来实现，第一个是通过get_user_pages 函数，另一个是自己手动走页表，先介绍第一个:</p>
 <pre><code>case KVM_HC_EXPOSE_SHM: {
@@ -135,6 +117,7 @@ void expose_shm(void)
         break;
     }
 </code></pre>
+
 <p>如上面代码所示: 首先调用gfn_to_hva将gpa转化成hva, 再调用<code>get_user_page</code>将这1M内存pin在内存中（防止迁移与swap），此时KVM能够通过page结构体直接访问这块内存的页，为了更加简单的读写共享内存，我们使用<code>vm_map_ram</code>将pages结构体转化成连续的内核虚拟地址，此时Host(KVM)就能够通过这个地址直接访问共享内存。</p>
 <h3 id="2">(方法2)直接走页表</h3>
 <p>上面这个方法是将gpa转化成hva, 再对hva指向的用户态内存进行一些常规操作后在内核态访问，接下来这种方法是直接bypass hva，利用Stage2 page table将gpa直接翻译成hpa。</p>
@@ -153,6 +136,7 @@ void expose_shm(void)
         break;
 }
 </code></pre>
+
 <p>这个方法的关键是走Stage2 page table:
 首先需要拿到Stage2 page table的基地址和页表的级数。然后再逐级走页表，拿到最后的物理地址。</p>
 <pre><code>u64 get_hpa_from_gpa(struct kvm_vcpu *vcpu, gpa_t gpa)
@@ -192,6 +176,7 @@ void expose_shm(void)
         return ret;
 }
 </code></pre>
+
 <h3 id="3">(方法3) 修改页表增加映射</h3>
 <p>上述的两种方法(通过hva和走页表）的前提是这个gpa到hpa的映射是存在于第二级页表的，我们只能够通过在Guest侧指定共享内存的gpa，而无法在Host侧指定共享内存存在于一个特定的hpa。为了解决这个问题，实现hpa first，可以采用第三种方法，在Host侧为Guest传过来的一个尚未有第二级页表映射的gpa映射到我们指定的hpa上。</p>
 <p>Guest:</p>
@@ -218,6 +203,7 @@ void expose_shm(void)
         *(int *)(shm_gva + (1 &lt;&lt; 6)));
 }
 </code></pre>
+
 <p>Guest 不再像之前一样通过kmalloc一段地址得到gpa，并写这块内存，因为如此的话，kvm会在处理第二阶段页表缺页（AMD里面叫做npf)的时候增加第二阶段页表的映射，之后我们再直接改页表就会与KVM自己的映射发生冲突。这里Guest直接拿一个gpa，然后调用hypercall让KVM增加映射。</p>
 <p>Host:</p>
 <pre><code>static void map_shm_ept(struct kvm_vcpu *vcpu, gpa_t gpa, phys_addr_t hpa)
@@ -252,6 +238,7 @@ void expose_shm(void)
     }
 }
 </code></pre>
+
 <pre><code>ase KVM_HC_EXPOSE_SHM: {
         u64 gpa = a0;
         void *shm_k_addr;
@@ -273,12 +260,13 @@ void expose_shm(void)
         break;
     }
 </code></pre>
+
 <p>Host在hypercall中将gpa和一个hpa的映射添加到第二阶段页表中，这里我使用了一个任意的hpa，也可以自己指定一个具体的hpa。</p>
 <h2 id="_3">共享内存验证</h2>
 <p>上面三种方案的代码均通过验证，可以直接使用。其实第一种方案与硬件架构无关，第二三种方案因为要读写页表，与硬件相关，我实现的是x86架构的。</p>
 <p>启动虚拟机，可以在Host的dmesg和Guest的启动log中检查共享内存是否建立成功:
-<img alt="" src="../static/kvm_to_guest.png" />
-<img alt="" src="../static/guest_probe_2.png" /></p>
+<img alt="" src="./static/kvm_to_guest.png" />
+<img alt="" src="./static/guest_probe_2.png" /></p>
 <h2 id="_4">其他</h2>
 <p>上面的方法是基于Guest主动发起一个hypercall来共享某块内存的，但是这个方法有一个缺陷：
 需要在虚拟机启动并发hypercall之后KVM才能够使用共享内存并写数据，有没有可能在虚拟机启动之前KVM就找到了共享内存，并提前在里面放了数据？当然也可以，我们能够让QEMU在启动的时候选择特定的gpa作为参数调用KVM的ioctl来将共享内存的hva告诉KVM。这一部分可以参考<a href="https://github.com/iaGuoZhi/Virtualization/tree/master/host-guest-shm">代码</a>, 不在此展开。</p>
@@ -302,8 +290,8 @@ void expose_shm(void)
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

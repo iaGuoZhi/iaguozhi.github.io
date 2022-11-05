@@ -10,31 +10,11 @@
 
   <title>Xv6 lazy lab - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="Xv6 lazy lab - iaGuoZhi">
-<meta property="twitter:title" content="Xv6 lazy lab - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/xv6_lazy">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -85,6 +65,7 @@ growproc(int n)
   return 0;
 }
 </code></pre>
+
 <p>在内核中我们只需在应用程序通过sbrk扩大地址空间时进行lazy映射。因为用户程序只能够通过sbrk向kernel申请内存空间，其他申请用户态内存的方式比如malloc，会由用户态内存分配器进行处理，用户态内存分配器的空闲内存不够时会调用sbrk扩大内存空间。</p>
 <h3 id="_1">处理缺页</h3>
 <p>发生下陷后，我们可以通过r_scause()检查scause寄存器，如果它的值是13或者15说明是缺页异常。</p>
@@ -94,6 +75,7 @@ growproc(int n)
     p-&gt;killed = 1;
 }
 </code></pre>
+
 <p>下面是page fault handler的代码，需要注意的是在处理page fault的过程中，我们要鉴别这个va是否合法，在Linux中可以通过vma来判断，Xv6中现在的设计比较简单，默认是只要小于sbrk申请出的sz的地址都是合法地址，除了要把栈下面的guard page剔除掉。</p>
 <p>除了上面这一点需要特殊考虑外，其他的操作都和uvmalloc类似。</p>
 <pre><code>static int
@@ -128,6 +110,7 @@ handle_page_fault(pagetable_t pagetable, uint64 va) {
 }
 
 </code></pre>
+
 <h2 id="fork">处理fork</h2>
 <p>fork在调用uvmcopy将内存拷贝到子进程的时候，之前会检查物理页是否存在，如果不存在则不合法，实现了lazy之后，允许此时物理页不存在。</p>
 <h2 id="_2">处理内核直接使用没有映射的虚拟地址</h2>
@@ -158,6 +141,7 @@ walkaddr(pagetable_t pagetable, uint64 va)
   return pa;
 }
 </code></pre>
+
 <p>除了上面这个操作之外，依然有可能在内核态触发缺页异常（原因未知 TBD)。 因此需要在kerneltrap()中也处理缺页异常。</p>
 <pre><code>if(r_scause() == 13 || r_scause() == 15) {
   if(handle_page_fault(myproc()-&gt;pagetable, PGROUNDDOWN(r_stval())) == -1)
@@ -167,12 +151,13 @@ walkaddr(pagetable_t pagetable, uint64 va)
     exit(-1);
 }
 </code></pre>
+
 <h2 id="_3">现有的不足</h2>
 <ol>
 <li>没有vma，不能够在软件层面记录哪些页面有映射，哪些没有。</li>
 </ol>
 <h2 id="_4">总结</h2>
-<p><img alt="" src="../static/lazy_time_spend.png" /></p>
+<p><img alt="" src="./static/lazy_time_spend.png" /></p>
 <h2 id="_5">参考</h2>
 <p><a href="https://pdos.csail.mit.edu/6.828/2020/labs/lazy.html">https://pdos.csail.mit.edu/6.828/2020/labs/lazy.html</a></p>
 <p><a href="https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf">https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf</a></p>
@@ -187,8 +172,8 @@ walkaddr(pagetable_t pagetable, uint64 va)
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

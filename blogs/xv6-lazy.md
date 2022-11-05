@@ -155,7 +155,7 @@ if(r_scause() == 13 || r_scause() == 15) {
 
 ## 总结
 
-![](../static/lazy_time_spend.png)
+![](./static/lazy_time_spend.png)
 
 ## 参考
 

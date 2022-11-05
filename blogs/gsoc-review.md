@@ -81,8 +81,8 @@ GSoC的前期阶段(入选者公布之前)非常重要。通常来说，GSoC项�
 
 [完成GSoC](https://summerofcode.withgoogle.com/programs/2022/projects)[11]让我收入了3600刀，拿到了GSoC 2022通过的证书，还让我的名字还出现在了2022年KVM Forum上。但我最想要的成就还没有达到，就是我关于VIRTIO In order feature的代码合并进入Linux/QEMU的主线，我也将继续推进这个工作。
 
-![](../../static/gsoc_completion.png)
-![](../../static/KVM_Forum_2022.jpeg)
+![](.././static/gsoc_completion.png)
+![](.././static/KVM_Forum_2022.jpeg)
 
 ## 参考
 

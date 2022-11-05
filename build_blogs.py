@@ -57,7 +57,7 @@ def write_post(post: frontmatter.Post, content: str):
     if post.get('private'):
         post['stem'] = "private/" + post['stem']
 
-    path = blogs_root_dir / post['stem']
+    path = blogs_root_dir / "{}.html".format(post['stem'])
     template = jinja_env.get_template('post.html')
     rendered = template.render(post=post, content=content)
     path.write_text(rendered)

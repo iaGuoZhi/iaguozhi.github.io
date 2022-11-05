@@ -10,31 +10,11 @@
 
   <title>Xv6 fs lab - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="Xv6 fs lab - iaGuoZhi">
-<meta property="twitter:title" content="Xv6 fs lab - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/xv6_fs">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -69,7 +49,7 @@
 <h3 id="xv6">Xv6 文件系统实现</h3>
 <p>Xv6 中文件系统的实现是在<code>kernel/fs.c</code>中</p>
 <p>下图展示了Xv6文件系统的实现：</p>
-<p><img alt="" src="../static/fs_layer_xv6.png" /></p>
+<p><img alt="" src="./static/fs_layer_xv6.png" /></p>
 <p>其中inode layer是最核心的，和其他文件系统一样，一个inode描述一个文件。inode会有一些in-memory的数据结构来保存状态，比如ref, valid。</p>
 <h2 id="large-file">实现Large file</h2>
 <p>这一步我们需要扩大文件大小的限制，以将支持的文件大小从KB级别提升到MB级别。</p>
@@ -132,6 +112,7 @@ bmap(struct inode *ip, uint bn)
   panic(&quot;bmap: out of range&quot;);
 }
 </code></pre>
+
 <p>还要考虑的是在释放一个inode的时候，要递归释放这个新增加的"doubly-indirect" block。
 代码如下:</p>
 <pre><code>if(ip-&gt;addrs[NDIRECT+1]){
@@ -153,6 +134,7 @@ bmap(struct inode *ip, uint bn)
   ip-&gt;addrs[NDIRECT + 1] = 0;
 }
 </code></pre>
+
 <h2 id="symbolic-link">实现symbolic link</h2>
   </content>
 </article>
@@ -165,8 +147,8 @@ bmap(struct inode *ip, uint bn)
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

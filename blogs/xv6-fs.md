@@ -25,7 +25,7 @@ Xv6 中文件系统的实现是在`kernel/fs.c`中
 
 下图展示了Xv6文件系统的实现：
 
-![](../static/fs_layer_xv6.png)
+![](./static/fs_layer_xv6.png)
 
 其中inode layer是最核心的，和其他文件系统一样，一个inode描述一个文件。inode会有一些in-memory的数据结构来保存状态，比如ref, valid。
 

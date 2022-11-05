@@ -10,31 +10,11 @@
 
   <title>Xv6 net lab - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="Xv6 net lab - iaGuoZhi">
-<meta property="twitter:title" content="Xv6 net lab - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/xv6_net">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -110,6 +90,7 @@ e1000_transmit(struct mbuf *m)
   return 0;
 }
 </code></pre>
+
 <h3 id="_3">收包</h3>
 <p>考虑到有多个网络包同时到来，需要在一次收包过程中处理所有到来的网络包。</p>
 <pre><code>static void
@@ -142,9 +123,10 @@ e1000_recv(void)
   __sync_synchronize();
 }
 </code></pre>
+
 <h2 id="_4">总结</h2>
 <p>比较简单</p>
-<p><img alt="" src="../static/net_time_spend.png" /></p>
+<p><img alt="" src="./static/net_time_spend.png" /></p>
 <h2 id="_5">参考</h2>
 <p><a href="https://pdos.csail.mit.edu/6.828/2020/labs/net.html">https://pdos.csail.mit.edu/6.828/2020/labs/net.html</a></p>
 <p><a href="https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf">https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf</a></p>
@@ -161,8 +143,8 @@ e1000_recv(void)
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

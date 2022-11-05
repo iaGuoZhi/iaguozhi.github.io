@@ -10,31 +10,11 @@
 
   <title>使用VFIO给虚拟机提供直通设备的步骤 - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="使用VFIO给虚拟机提供直通设备的步骤 - iaGuoZhi">
-<meta property="twitter:title" content="使用VFIO给虚拟机提供直通设备的步骤 - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/vm-vfio">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -69,15 +49,18 @@ modprobe vfio-pci
 # 查询NVMe设备的(domain,slot,bus,function)和(vendor id, device id )
 lspci -D -nn | grep NVM
 </code></pre>
+
 <p>lspci结果如下:</p>
 <pre><code>0000:5e:00.0 Non-Volatile memory controller [0108]: Intel Corporation NVMe Datacenter SSD [Optane] [8086:2701]
 </code></pre>
+
 <p>然后执行</p>
 <pre><code># 将NVMe设备从原来的IOMMU group中unbind
 sudo bash -c 'echo 0000:5e:00.0 &gt; /sys/bus/pci/devices/0000:5e:00.0/driver/unbind'
 # 将NVMe设备bind到vfio-pci下
 sudo bash -c 'echo 8086 2701 &gt; /sys/bus/pci/drivers/vfio-pci/new_id'
 </code></pre>
+
 <h3 id="_3">启动虚拟机</h3>
 <pre><code>qemu-system-x86_64 \
     -kernel ./bzImage \
@@ -87,11 +70,13 @@ sudo bash -c 'echo 8086 2701 &gt; /sys/bus/pci/drivers/vfio-pci/new_id'
     -enable-kvm \
     -device vfio-pci,host=0000:5e:00.0
 </code></pre>
+
 <h3 id="bindhost">使用完成后，重新bind到host驱动</h3>
 <pre><code>sudo bash -c 'echo 8086 2701 &gt; /sys/bus/pci/drivers/vfio-pci/remove_id'
 sudo modprobe -r vfio-pci
 sudo bash -c 'echo -n 0000:5e:00.0 &gt; /sys/bus/pci/drivers/nvme/bind
 </code></pre>
+
 <h2 id="_4">参考</h2>
 <p><a href="https://www.cnblogs.com/bhlsheji/p/5317002.html">https://www.cnblogs.com/bhlsheji/p/5317002.html</a></p>
 <p><a href="https://topic.alibabacloud.com/a/linux-drivers-manually-bind-and-unbind_1_16_30158827.html">https://topic.alibabacloud.com/a/linux-drivers-manually-bind-and-unbind_1_16_30158827.html</a></p>
@@ -106,8 +91,8 @@ sudo bash -c 'echo -n 0000:5e:00.0 &gt; /sys/bus/pci/drivers/nvme/bind
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

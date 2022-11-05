@@ -10,31 +10,11 @@
 
   <title>vsock 介绍与使用 - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="vsock 介绍与使用 - iaGuoZhi">
-<meta property="twitter:title" content="vsock 介绍与使用 - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/vsock">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -57,13 +37,16 @@
 CONFIG_VIRTIO_VSOCKETS=y
 CONFIG_VIRTIO_VSOCKETS_COMMON=y
 </code></pre>
+
 <h4 id="kernel_1">宿主机kernel</h4>
 <p>VHOST_VSOCK 只能够被编译成模块</p>
 <pre><code>CONFIG_VHOST_VSOCK=m
 </code></pre>
+
 <h3 id="qemu">使用QEMU启动虚拟机</h3>
 <pre><code>modprobe vhost_vsock
 </code></pre>
+
 <h3 id="_2">示例程序</h3>
 <h4 id="server">Server (运行在宿主机上)</h4>
 <pre><code>#include &lt;sys/socket.h&gt;
@@ -98,6 +81,7 @@ int main()
     return 0;
 }
 </code></pre>
+
 <h4 id="client">Client (运行在虚拟机上)</h4>
 <pre><code>#include &lt;sys/socket.h&gt;
 #include &lt;linux/vm_sockets.h&gt;
@@ -122,6 +106,7 @@ int main()
     return 0;
 }
 </code></pre>
+
 <h2 id="_3">参考</h2>
 <p><a href="https://gist.github.com/nrdmn/7971be650919b112343b1cb2757a3fe6">https://gist.github.com/nrdmn/7971be650919b112343b1cb2757a3fe6</a></p>
 <p><a href="https://wiki.qemu.org/Features/VirtioVsock">https://wiki.qemu.org/Features/VirtioVsock</a></p>
@@ -137,8 +122,8 @@ int main()
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

@@ -174,7 +174,7 @@ static int shm_kernel_driver_mmap(struct file *filp, struct vm_area_struct *vma)
 
 目前Linux采用了5级页表，如下图所示，从大到小依次为PGD, P4D, PUD, PMD, PTE。
 
-![](../static/five-level-pt.png)
+![](./static/five-level-pt.png)
 
 `update_pgt`开始从`current->mm`中拿到CR3寄存器中的页表基地址，根据uva每一级的值作为寻找下一级页表的索引找到下一级页表页的地址，如果出现了下一级页表页为空的情况，会直接分配一个新的物理页面，并修改上一级页表项指向这个新分配的页面。PTE项上存着我们传入的物理页的地址（除了PTE上存物理地址，其他级页表上都是存着下一级页表的线性虚拟地址）。
 
@@ -235,11 +235,11 @@ int test_shm_mmap(int shm_fd, void *buf)
 
 用户程序输出:
 
-![](../static/k-u-shm_user_output.png)
+![](./static/k-u-shm_user_output.png)
 
 内核输出:
 
-![](../static/k-u-shm_kernel_output.png)
+![](./static/k-u-shm_kernel_output.png)
 
 ## 参考
 

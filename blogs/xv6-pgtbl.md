@@ -19,11 +19,11 @@ Xv6 跑在Sv39 RISC-V上，这意味着虚拟地址的64个bit只使用了0-38�
 每一级页表大小位512\*8=4096 bytes(4k), 每个页表上有512个entry，每个entry里面有PPN和Flags，PPN(44个bits)作为物理地址用来查找下级页表或者最终翻译结果的物理地址,Flags(10个bits）用来设置页表的权限。 
 Xv6中用到的权限位包括PTE\_V,PTE\_R,PTE\_W,PTE\_X,PTE\_U。
 
-![](../static/xv6_page_table.png)
+![](./static/xv6_page_table.png)
 
 Xv6为一个进程提供了一个用户态页表，并且在内核实现了一个公共的内核页表（在这个lab中，我们需要为每个内核实现独立的页表）。下图是Xv6 book提供的关于Xv6 虚拟内存到物理内存映射关系图，可以看到，内核态的虚拟地址处于高地址，而每个进程的用户态虚拟地址空间将被映射在低地址（从0开始）。对于QEMU提供的寄存器和内核代码段，数据段，Xv6采用了直接映射的方式。
 
-![](../static/xv6_va_2_pa.png)
+![](./static/xv6_va_2_pa.png)
 
 ## 打印页表(简单）
 
@@ -368,7 +368,7 @@ growproc(int n)
 
 这个Lab要比之前两个Lab困难很多，需要完全理解地址空间布局才能够少踩坑。我在这个Lab上花费的时间要多上很多：
 
-![](../static/pgtbl_time_spend.png)
+![](./static/pgtbl_time_spend.png)
 
 ## 参考
 

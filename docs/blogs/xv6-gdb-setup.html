@@ -10,31 +10,11 @@
 
   <title>Xv6配置gdb - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="Xv6配置gdb - iaGuoZhi">
-<meta property="twitter:title" content="Xv6配置gdb - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/xv6_gdb_setup">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -51,12 +31,14 @@
     <p>基于ubuntu20.04, Xv6版本: mit 2020</p>
 <h2 id="riscv">安装riscv工具链</h2>
 <p>下载源码</p>
-<pre class="lang-sh">$ git clone https://github.com/riscv/riscv-gnu-toolchain
-</pre>
+<pre><code class="sh">$ git clone https://github.com/riscv/riscv-gnu-toolchain
+</code></pre>
+
 <p>安装riscv工具链</p>
-<pre class="lang-sh">./configure --prefix<span class="o">=</span>/opt/riscv
+<pre><code class="sh">./configure --prefix=/opt/riscv
 sudo make linux
-</pre>
+</code></pre>
+
 <h2 id="gdb">使用gdb</h2>
 <ol>
 <li>在一个窗口输入<code>make qemu-gdb</code></li>
@@ -85,8 +67,8 @@ sudo make linux
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

@@ -113,7 +113,7 @@ e1000_recv(void)
 
 比较简单
 
-![](../static/net_time_spend.png)
+![](./static/net_time_spend.png)
 
 ## 参考
 

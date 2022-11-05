@@ -51,7 +51,7 @@ vhost-user库支持的control plane操作：
 
 QEMU virtio device model让这些统一在一起，它支持PCI设备的发现，它将ioeventfd映射在设备mmio的内存空间，irqfd映射在GSI。这可以使得虚拟机可以意识不到所有的通知和中断都被DPDK接收了。
 
-![](../static/virtio-dpdk.png)
+![](./static/virtio-dpdk.png)
 
 ## 虚拟机中的用户态网络
 
@@ -122,7 +122,7 @@ QEMU的vIOMMU提供了以下特性:
 
 尽管这么多翻译对性能会产生影响，但是可以通过DPDK的static,hugepage allocation 来避免。
 
-![](../static/vhost-user-iommu.png)
+![](./static/vhost-user-iommu.png)
 
 * 当一个IOVA指向了virtqueue，它会被缓存在vIOMMU的TLB中
 * QEMU能够将gpa翻译成hva
@@ -132,11 +132,11 @@ QEMU的vIOMMU提供了以下特性:
 
 ## Putting everything together
 
-![](../static/putting_together_vhost_dpdk.jpeg)
+![](./static/putting_together_vhost_dpdk.jpeg)
 
 ## 流程示意图
 
-![](../static/vhost_dpdk_example_flow.jpeg)
+![](./static/vhost_dpdk_example_flow.jpeg)
 
 ### 控制面
 

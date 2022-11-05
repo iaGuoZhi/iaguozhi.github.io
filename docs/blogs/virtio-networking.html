@@ -10,31 +10,11 @@
 
   <title>DPDK中的VIRTIO - iaGuoZhi</title>
 
-  <!-- RSS -->
-  <link rel="alternate" type="application/rss+xml" href="https://blog.thea.codes/feed.xml" />
-
   <!-- Bootstrap core CSS -->
-  <link href="/static/bootstrap.min.css" rel="stylesheet">
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
 
   <!-- Custom styles for this template -->
-  <link href="/static/style.css" rel="stylesheet">
-
-  <!-- Syntax highlighting css -->
-  <link href="/static/pygments.css" rel="stylesheet">
-
-  
-<meta property="og:title" content="DPDK中的VIRTIO - iaGuoZhi">
-<meta property="twitter:title" content="DPDK中的VIRTIO - iaGuoZhi">
-
-
-
-
-
-
-
-<meta property="og:url" content="https://blog.thea.codes/virtio-networking">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@theavalkyrie">
+  <link href="./static/style.css" rel="stylesheet">
 
 </head>
 <body>
@@ -85,7 +65,7 @@
 </ul>
 <p>通过上述协商后，DPDK应用能够和guest vm共享内存页并且guest可以直接想dpdk发起notification，guest不会产生下陷。</p>
 <p>QEMU virtio device model让这些统一在一起，它支持PCI设备的发现，它将ioeventfd映射在设备mmio的内存空间，irqfd映射在GSI。这可以使得虚拟机可以意识不到所有的通知和中断都被DPDK接收了。</p>
-<p><img alt="" src="../static/virtio-dpdk.png" /></p>
+<p><img alt="" src="./static/virtio-dpdk.png" /></p>
 <h2 id="_2">虚拟机中的用户态网络</h2>
 <p>为了在虚拟机的用户态直接使用网络，需要三个组件:</p>
 <ul>
@@ -141,7 +121,7 @@
 <li>Vhost-user library将HVA翻译成它自己的HVA。(mmap)</li>
 </ul>
 <p>尽管这么多翻译对性能会产生影响，但是可以通过DPDK的static,hugepage allocation 来避免。</p>
-<p><img alt="" src="../static/vhost-user-iommu.png" /></p>
+<p><img alt="" src="./static/vhost-user-iommu.png" /></p>
 <ul>
 <li>当一个IOVA指向了virtqueue，它会被缓存在vIOMMU的TLB中</li>
 <li>QEMU能够将gpa翻译成hva</li>
@@ -150,9 +130,9 @@
 <li>最后, vhost-user库完成最后的翻译，它能够将qemu 的hva翻译成自己的hva</li>
 </ul>
 <h2 id="putting-everything-together">Putting everything together</h2>
-<p><img alt="" src="../static/putting_together_vhost_dpdk.jpeg" /></p>
+<p><img alt="" src="./static/putting_together_vhost_dpdk.jpeg" /></p>
 <h2 id="_3">流程示意图</h2>
-<p><img alt="" src="../static/vhost_dpdk_example_flow.jpeg" /></p>
+<p><img alt="" src="./static/vhost_dpdk_example_flow.jpeg" /></p>
 <h3 id="_4">控制面</h3>
 <p>控制面初始化的步骤</p>
 <ul>
@@ -190,8 +170,8 @@
         </div>
         <div class="col-md info">
           <span class="name">iaGuoZhi</span><br>
-          <a href="./"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
-          · <a href="./about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
           · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
           · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
           · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>

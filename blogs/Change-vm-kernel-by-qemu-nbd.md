@@ -15,7 +15,7 @@ date: 2022-06-04
 
 如果直接mount这个kernel image会出现下面这个报错。原因应该是该image文件格式的问题，这个image包含了虚拟机的boot分区，所以上面不是单纯的ext4文件系统。
 
-![](../static/direct_mount_problem.png)
+![](./static/direct_mount_problem.png)
 
 ### qemu-nbd
 
@@ -37,16 +37,16 @@ date: 2022-06-04
 
 进入./mnt就能够看到虚拟机里面的文件。
 
-![](../static/ls_after_mount.png)
+![](./static/ls_after_mount.png)
 
 ### 修改grub
 
 在能够读写虚拟机的image文件后，修改它里面的grub.cfg来用其他正常的kernel启动虚拟机。
 
 如下图所示，将vmlinuz从xxx.dirty修改为xxx.dirty.old(代表着我们上一次make install生成的kernel之前那个版本的kernel)。保存修改
-![](../static/grub_before.png)
+![](./static/grub_before.png)
 
-![](../static/grub_after.png)
+![](./static/grub_after.png)
 
 ### 重新启动
 
@@ -76,7 +76,7 @@ date: 2022-06-04
 
 完成后退出虚拟机，之后用`sudo virsh start $(Domain) --console` 启动虚拟机，就能够直接看到console输出了。
 
-![](../static/console_output.png)
+![](./static/console_output.png)
 
 ### 虚拟机支持console选择kernel
 
@@ -91,7 +91,7 @@ GRUB_TIMEOUT=10
 
 console效果如下:
 
-![](../static/grub_in_console.png)
+![](./static/grub_in_console.png)
 
 到这一步如果再将kernel写坏导致不能够ssh或者不能够启动成功，直接重新启动并在console中更换kernel就行。
 
