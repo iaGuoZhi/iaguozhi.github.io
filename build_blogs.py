@@ -14,6 +14,8 @@ jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader('templates/blogs'),
 )
 
+blogs_root_dir = pathlib.Path("./docs/blogs/")
+
 markdown_ = markdown.Markdown(
     extensions=[
         "toc",
@@ -55,8 +57,7 @@ def write_post(post: frontmatter.Post, content: str):
     if post.get('private'):
         post['stem'] = "private/" + post['stem']
 
-    path = pathlib.Path("./docs/blogs/{}.html".format(post['stem']))
-
+    path = blogs_root_dir / post['stem']
     template = jinja_env.get_template('post.html')
     rendered = template.render(post=post, content=content)
     path.write_text(rendered)
@@ -71,15 +72,9 @@ def write_posts() -> Sequence[frontmatter.Post]:
         content = render_markdown(post.content)
         post['stem'] = source.stem
         write_post(post, content)
-
         posts.append(post)
 
     return posts
-
-
-def write_pygments_style_sheet():
-    css = highlighting.get_style_css(witchhazel.WitchHazelStyle)
-    pathlib.Path("./docs/static/pygments.css").write_text(css)
 
 
 def write_index(all_posts: Sequence[frontmatter.Post]):
@@ -88,31 +83,20 @@ def write_index(all_posts: Sequence[frontmatter.Post]):
 
     # Write public index
     posts = filter(lambda p: not p.get('private'), all_posts)
-    path = pathlib.Path("./docs/blogs/index.html")
+    path = blogs_root_dir / 'index.html'
     rendered = template.render(posts=posts)
     path.write_text(rendered)
 
     # Write private index
     posts = filter(lambda p: p.get('private'), all_posts)
-    path = pathlib.Path("./docs/blogs/private/index.html")
+    path = blogs_root_dir / 'private/index.html'
     rendered = template.render(posts=posts)
     path.write_text(rendered)
 
 
-def write_rss(posts: Sequence[frontmatter.Post]):
-    posts = sorted(posts, key=lambda post: post['date'], reverse=True)
-    posts = filter(lambda p: not p.get('private'), posts)
-    path = pathlib.Path("./docs/feed.xml")
-    template = jinja_env.get_template('rss.xml')
-    rendered = template.render(posts=posts, root="https://iaguozhi.github.io")
-    path.write_text(rendered)
-
-
 def main():
-    write_pygments_style_sheet()
     posts = write_posts()
     write_index(posts)
-    write_rss(posts)
 
 
 if __name__ == '__main__':

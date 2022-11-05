@@ -1,34 +1,27 @@
 import pathlib
-from typing import Iterator, Sequence
+from typing import Iterator
 
-import markdown
-import markdown.extensions.fenced_code
-import pymdownx.magiclink
 import frontmatter
 import jinja2
-
-import highlighting
-import witchhazel
 import PIL.Image
 
 THUMBNAIL_SIZE = (1024, 768)
-
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader('templates/photos'),
 )
 
+photos_root_dir = pathlib.Path("./docs/photos")
+photos_dir = photos_root_dir / 'photos'
+thumbnails_dir = photos_root_dir / 'thumbnails'
 
-thumbnail_dir = pathlib.Path("./docs/photos/thumbnails")
-photos_dir = pathlib.Path("./docs/photos/photos")
 
 def thumbnail(photo_path):
-    thumbnail_path = thumbnail_dir / photo_path
+    thumbnail_path = thumbnails_dir / photo_path
     thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
 
     im = PIL.Image.open(photos_dir / photo_path)
     im.thumbnail(THUMBNAIL_SIZE)
     im.save(str(thumbnail_path))
-
     im.close()
 
 
@@ -57,9 +50,10 @@ def generate_index():
         photos.append(photo)
 
     photos.sort(key=lambda x: x["date"], reverse=True)
+    path = photos_root_dir / 'index.html'
     template = jinja_env.get_template('index.html')
     rendered = template.render(photos=photos)
-    pathlib.Path("./docs/photos/index.html").write_text(rendered)
+    path.write_text(rendered)
 
 
 def main():
