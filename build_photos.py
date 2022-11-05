@@ -17,8 +17,10 @@ thumbnails_dir = photos_root_dir / 'thumbnails'
 
 def thumbnail(photo_path):
     thumbnail_path = thumbnails_dir / photo_path
-    thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
+    if pathlib.Path.exists(thumbnail_path):
+        return
 
+    thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
     im = PIL.Image.open(photos_dir / photo_path)
     im.thumbnail(THUMBNAIL_SIZE)
     im.save(str(thumbnail_path))
