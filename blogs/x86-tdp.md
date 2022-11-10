@@ -54,6 +54,8 @@ kvm_tdp_page_fault
 -direct_page_fault
 --kvm_tdp_mmu_map
 ---tdp_mmu_map_handle_target_level
+----tdp_mmu_map_set_spte_atomic
+-----__handle_changed_spte
 ```
 
 ### kvm\_mmu\_get\_page

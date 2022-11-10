@@ -69,6 +69,8 @@ tdp: 两阶段页表(Intel称为EPT, AMD称为NPT)
 -direct_page_fault
 --kvm_tdp_mmu_map
 ---tdp_mmu_map_handle_target_level
+----tdp_mmu_map_set_spte_atomic
+-----__handle_changed_spte
 </code></pre>
 <h3 id="kvm_mmu_get_page">kvm_mmu_get_page</h3>
 <h2 id="shadow-pte">Shadow pte</h2>
