@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>zram 的使用 - iaGuoZhi</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="./static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="./static/pygments.css" rel="stylesheet">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on May 08, 2023</time>
+    · <a href="/blogs">view all posts</a>
+  </aside>
+  <h1>zram 的使用</h1>
+  <content>
+    <h2 id="zram-vs-zswap">zram vs zswap</h2>
+<p>zram 是将swap out的页面压缩保存在内存中, 内存是swap出的工作集最终存放的位置，而zswap是将swap out的页面先压缩再swap到磁盘设备,磁盘是最终保存swap出的工作集的位置。</p>
+<h2 id="zram">zram 安装</h2>
+<p>首先检查Linux kernel的config中有没有打开zram(在Block目录下)和对应的压缩算法，例如lz4(在Cryptographic API目录下).</p>
+<h3 id="arch">Arch</h3>
+<pre><code>sudo pacman -S zram
+</code></pre>
+<p>编辑zram-generator.conf</p>
+<pre><code># /etc/systemd/zram-generator.conf
+[zram0]
+zram-size = (ram / 2)
+ptions = X-mount.mode=1777
+</code></pre>
+<p>重启后，能够使用zram来做swap</p>
+<h3 id="ubuntu">Ubuntu</h3>
+<p>直接安装</p>
+<pre><code>sudo apt install zram-config
+</code></pre>
+<p>重启即可</p>
+<h3 id="fedora">Fedora</h3>
+<p>Fedora 33以及以上的版本默认开启了zram. 在32以及一下需要以下操作</p>
+<p>安装相关包:</p>
+<pre><code>sudo dnf install zram # 安装后，能够通过systemctl status zram-swap 看到这个服务的状态
+sudo dnf install zram-generator
+</code></pre>
+<p>编辑zram-generator.conf</p>
+<pre><code># /etc/systemd/zram-generator.conf
+[zram0]
+zram-size = (ram / 2)
+ptions = X-mount.mode=1777
+</code></pre>
+<p>无需重启，直接运行</p>
+<pre><code>systemctl enable zram-swap.service
+systemctl start zram-swap.service
+</code></pre>
+<p>此时zram就出现在了/dev目录下，并作为swap的后端</p>
+<h2 id="zramswap">Zram和磁盘上的swap文件性能对比</h2>
+<h2 id="_1">参考</h2>
+<p><a href="https://www.reddit.com/r/linux/comments/11dkhz7/zswap_vs_zram_in_2023_whats_the_actual_practical/">https://www.reddit.com/r/linux/comments/11dkhz7/zswap_vs_zram_in_2023_whats_the_actual_practical/</a></p>
+<p><a href="https://superuser.com/questions/1727160/zram-vs-zswap-for-lower-end-hardware#:~:text=Unlike%20ZSWAP%2C%20what%20ZRAM%20does,it%20tries%20to%20compress%20data">https://superuser.com/questions/1727160/zram-vs-zswap-for-lower-end-hardware#:~:text=Unlike%20ZSWAP%2C%20what%20ZRAM%20does,it%20tries%20to%20compress%20data</a>.</p>
+<p><a href="https://fosspost.org/enable-zram-on-linux-better-system-performance/">https://fosspost.org/enable-zram-on-linux-better-system-performance/</a></p>
+<p><a href="https://opensource.com/article/22/11/zram-swap-linux">https://opensource.com/article/22/11/zram-swap-linux</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+</body>
+</html>
