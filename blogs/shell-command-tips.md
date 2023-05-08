@@ -329,7 +329,7 @@ curl -sS https:# bootstrap.pypa.io/get-pip.py | sudo python3
 
 列出正在使用某个开放端口的进程
 ```
-sudo lsof -i -P -n | grep 7890
+lsof -i 7890
 ```
 
 ### ip
