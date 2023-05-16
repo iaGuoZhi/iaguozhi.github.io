@@ -275,6 +275,13 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 </code></pre>
 <h3 id="readelf">readelf</h3>
 <p>分析elf文件</p>
+<h3 id="cpio">cpio</h3>
+<p>制作initramfs</p>
+<pre><code>find . -print0 | cpio --null -ov --format=newc | gzip &gt; ../initramfs.cpio.gz
+</code></pre>
+<p>挂载initramfs</p>
+<pre><code>cpio -i &lt; ../initrd.img
+</code></pre>
 <h3 id="stress">stress</h3>
 <p>给机器增加指定数量的负载(CPU, 内存或者IO)</p>
 <p>将服务器的内存使用350G:</p>

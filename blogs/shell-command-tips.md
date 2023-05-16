@@ -428,6 +428,18 @@ qemu-aarch64 bomb
 
 分析elf文件
 
+### cpio
+
+制作initramfs
+```
+find . -print0 | cpio --null -ov --format=newc | gzip > ../initramfs.cpio.gz
+```
+
+挂载initramfs
+```
+cpio -i < ../initrd.img
+```
+
 ### stress
 
 给机器增加指定数量的负载(CPU, 内存或者IO)
