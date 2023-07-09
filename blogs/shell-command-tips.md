@@ -336,7 +336,7 @@ curl -sS https:# bootstrap.pypa.io/get-pip.py | sudo python3
 
 列出正在使用某个开放端口的进程
 ```
-sudo lsof -i -P -n | grep 7890
+lsof -i 7890
 ```
 
 ### ip
@@ -434,6 +434,18 @@ qemu-aarch64 bomb
 ### readelf
 
 分析elf文件
+
+### cpio
+
+制作initramfs
+```
+find . -print0 | cpio --null -ov --format=newc | gzip > ../initramfs.cpio.gz
+```
+
+挂载initramfs
+```
+cpio -i < ../initrd.img
+```
 
 ### stress
 

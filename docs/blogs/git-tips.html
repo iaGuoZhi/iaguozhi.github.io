@@ -16,6 +16,9 @@
   <!-- Custom styles for this template -->
   <link href="./static/style.css" rel="stylesheet">
 
+  <!-- Syntax highlighting css -->
+  <link href="./static/pygments.css" rel="stylesheet">
+
 </head>
 <body>
   <div class="container">
@@ -34,113 +37,90 @@
 <p>clone并更名为linux:</p>
 <pre><code>git clone https://github.com/openeuler-mirror/kernel.git linux
 </code></pre>
-
 <h3 id="branch">branch</h3>
 <p>列出所有分支(本地和远程)</p>
 <pre><code>git branch -a
 </code></pre>
-
 <h3 id="add">add</h3>
 <p>分块添加进暂存区，而不是添加整个文件</p>
 <pre><code>git add -p
 </code></pre>
-
 <h3 id="pull">pull</h3>
 <p>仅仅pull最近的一个commit:</p>
 <pre><code>git pull origin master --depth=1
 </code></pre>
-
 <h3 id="commit">commit</h3>
 <p>增加签名:</p>
 <pre><code>gc --signoff
 </code></pre>
-
 <p>commit为fixup!, 在rebase squash中将被合并</p>
 <pre><code>gc --fixup SHA1
 </code></pre>
-
 <h3 id="reset">reset</h3>
 <p>重置到某个commit，不保留之后的修改</p>
 <pre><code>git reset --hard SHA1
 </code></pre>
-
 <p>重置到某个commit，保留之后的修改到工作区</p>
 <pre><code>git reset --soft SHA1
 </code></pre>
-
 <h3 id="cherry-pick">cherry-pick</h3>
 <p>挑选某个commit到当前分支</p>
 <pre><code>git cherry-pick SHA1
 </code></pre>
-
 <h3 id="rebase">rebase</h3>
 <p>通过rebase可以非常方便的修改已经commit的代码, 比如要修改commit HEAD^^，可以通过</p>
 <pre><code>git rebase -i HEAD^^^
 </code></pre>
-
 <p>在rebase的编辑界面，将目标commit从pick改成edit，即可修改</p>
 <p>此外能够在编辑界面修改keyword实现删除某个commit，合并commit，更改commit message</p>
 <p>rebase非常好用，我经常使用的指令还有这个:</p>
 <pre><code>git rebase -i --autosquash master
 </code></pre>
-
 <p>它能合并需要被squash的commit, 需要与git commit --fixup搭配使用</p>
 <p>通过rebase还能够为commit添加签名，比如为最近的四个commit增加签名</p>
 <pre><code>git rebase --signoff HEAD~4
 </code></pre>
-
 <h3 id="revert">revert</h3>
 <p>更加安全的删除某个commit, 目标commit仍存在，只是新增加一个revert commit删除目标commit添加的代码:</p>
 <pre><code>git revert SHA1
 </code></pre>
-
 <h3 id="stash">stash</h3>
 <p>贮藏脏工作区的修改</p>
 <pre><code>git stash
 </code></pre>
-
 <p>恢复脏工作区的修改</p>
 <pre><code>git stash pop
 </code></pre>
-
 <h3 id="diff">diff</h3>
 <p>查看与某个commit对比的overview</p>
 <pre><code>git diff SHA1 --stat
 </code></pre>
-
 <p>查看已经添加到工作区的修改</p>
 <pre><code>git diff --staged
 </code></pre>
-
 <h3 id="log">log</h3>
 <pre><code>git log --oneline
 </code></pre>
-
 <h3 id="bitsect">bitsect</h3>
 <p>二分查找来发现引入bug的commit</p>
 <pre><code>git bisect
 </code></pre>
-
 <h3 id="submodules">submodules</h3>
 <p>添加submodule</p>
 <pre><code>git submodule add --depth 1 https://github.com/iaGuoZhi/linux kernel
 </code></pre>
-
 <p>选择submodule分支</p>
 <pre><code>cd kernel
 git fetch origin shm_kernel_driver:shm_kernel_driver --depth=10
 git checkout shm_kernel_driver
 </code></pre>
-
 <p>更新所有的submodule</p>
 <pre><code>git submodule update --init --recursive
 </code></pre>
-
 <h3 id="help">help</h3>
 <p>git最常见的用法示例</p>
 <pre><code>git help everyday
 </code></pre>
-
 <h2 id="patch">与 Patch 相关</h2>
 <h3 id="commit_1">commit 规范</h3>
 <ol>
@@ -151,34 +131,28 @@ git checkout shm_kernel_driver
 v3:
 - Use C style comment
 </code></pre>
-
 <h3 id="format-patch">format-patch</h3>
 <p>使用最近的4个commit制作版本为1的4个patch，并且添加签名, 添加patch来介绍这个series</p>
 <pre><code>git format-patch --cover-letter -s -v 1 -4
 </code></pre>
-
 <h3 id="checkpatch">checkpatch</h3>
 <p>使用checkpatch.pl来检查最近一个commit是否有style上面的问题</p>
 <pre><code>./scripts/checkpatch.pl -g --strict HEAD~1..HEAD
 </code></pre>
-
 <h3 id="send-email">send-email</h3>
 <p>通过email发送patch的一个例子:</p>
 <pre><code>git send-email 0001-acpi-processor_idle.c-Fix-kernel-pointer-leak.patch --to rafael@kernel.org,lenb@kernel.org --cc linux-acpi@vger.kernel.org,linux-kernel@vger.kernel.org
 </code></pre>
-
 <p>发送邮件来提交patch, 但是查找邮件的发送对象很麻烦，而且还需要抄写，难免会出现错误，可以使用这个技巧来自动填充email
 首先在gitconfig中设置:</p>
 <pre><code>[sendemail.linux]
         tocmd =&quot;`pwd`/scripts/get_maintainer.pl --nogit --nogit-fallback --norolestats --nol&quot;
         cccmd =&quot;`pwd`/scripts/get_maintainer.pl --nogit --nogit-fallback --norolestats --nom&quot;
 </code></pre>
-
 <p>然后在项目Linux的根目录使用以下命令发送patch</p>
 <pre><code># 自动填充email
 git send-email --identity=linux ***.patch
 </code></pre>
-
 <h3 id="publish">publish</h3>
 <p>一个内核大佬们写的工具，能够帮助自动整理并发送patch（自动化patch以及cover letter生成，patch的版本管理，邮件管理)，发送patch只需要一个命令即可，非常方便:</p>
 <p><a href="https://github.com/stefanha/git-publish">https://github.com/stefanha/git-publish</a></p>
@@ -186,7 +160,6 @@ git send-email --identity=linux ***.patch
 <p>合并邮箱中的patch:</p>
 <pre><code>git apply xxx.patch
 </code></pre>
-
 <h2 id="vim">与 Vim 相关</h2>
 <h3 id="vim-fugitive">vim-fugitive</h3>
 <p>通过Gdiffsplit和diffput在vim中添加修改</p>

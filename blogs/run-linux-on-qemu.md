@@ -222,6 +222,9 @@ mount -t devtmpfs devtmpfs /dev
 ifconfig eth0 up
 udhcpc
 
+# let ctrl+c work in shell
+setsid /bin/cttyhack /bin/sh
+
 echo -e "\nBoot took $(cut -d' ' -f1 /proc/uptime) seconds\n"
 
 exec /bin/sh

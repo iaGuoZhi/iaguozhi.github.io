@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="author" content="iaGuoZhi">
+  <link rel="shortcut icon" href="https://blog.thea.codes/favicon.ico">
+
+  <title>Linux NVMe Commands - iaGuoZhi</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="./static/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="./static/style.css" rel="stylesheet">
+
+  <!-- Syntax highlighting css -->
+  <link href="./static/pygments.css" rel="stylesheet">
+
+</head>
+<body>
+  <div class="container">
+
+    
+<article>
+  <aside class="timestamp">
+    <time>Posted by iaGuoZhi on April 10, 2023</time>
+    · <a href="/blogs">view all posts</a>
+  </aside>
+  <h1>Linux NVMe Commands</h1>
+  <content>
+    <h2 id="controller">列出controller</h2>
+<pre><code># 列出主控制器
+nvme id-ctrl /dev/nvme0
+# 列出secondary controller
+nvme list-secondary /dev/nvme0
+</code></pre>
+<h2 id="namespace">创建namespace</h2>
+<pre><code># 创建50GB的ns
+nvme create-ns /dev/nvme0 -nsze=97656250 --ncap=97656250 --flbas=0 -dps=0
+</code></pre>
+<p>返回的是ns的id</p>
+<h2 id="attach-namespace-controller">Attach namespace 到 controller</h2>
+<pre><code># attach 到主控制器
+nvme attach-ns /dev/nvme0 -n $NSID -c 65
+nvme ns-rescan /dev/nvme0
+# attach 到secondary controller
+nvme attach-ns /dev/nvme0 -c $VIRT_CNTLID -n $NSID
+</code></pre>
+<h2 id="detach">Detach</h2>
+<pre><code>nvme detach-ns /dev/nvme0 -n $NSID -c 65
+</code></pre>
+<h1 id="_1">完整脚本</h1>
+<h2 id="nvme">使用普通NVMe设备的流程</h2>
+<pre><code>NVME_DEV=/dev/nvme0
+SIZE_GB=512
+BLOCK_SIZE=4096
+VFNID=0
+
+# Get the ID of the primary (host) controller
+HOST_CNTLID=$(nvme id-ctrl $NVME_DEV -o json | jq .cntlid)
+
+# Get the ID of the secondary (virtual function) controller
+VIRT_CNTLID=$(nvme list-secondary $NVME_DEV -o json | jq '.&quot;secondary-controllers&quot;[]|select(.&quot;virtual-function-number&quot;=='$((VFNID + 1))').&quot;secondary-controller-identifier&quot;')
+
+SIZE_BLOCKS=$((SIZE_GB * 1000000000 / BLOCK_SIZE))
+
+echo &quot;Primary controller ID:   $HOST_CNTLID&quot;
+echo &quot;Secondary controller ID: $VIRT_CNTLID&quot;
+echo &quot;Creating namespace with $SIZE_BLOCKS $BLOCK_SIZE-byte blocks...&quot;
+
+# Create the new namespace, and capture the output, which should be &quot;create-ns: Success, created nsid:32&quot;
+out=$(nvme create-ns $NVME_DEV --nsze=$SIZE_BLOCKS --ncap=$SIZE_BLOCKS --block-size $BLOCK_SIZE)
+
+NSID=${out#*created nsid:}
+echo &quot;Created namespace $NSID&quot;
+
+# Attach the namespace to the host
+nvme attach-ns $NVME_DEV -n $NSID -c $HOST_CNTLID
+
+# Wait for the namespace to populate
+while true; do
+    NSDEV=$(nvme list -o json | jq -r &quot;.Devices[]|select(.NameSpace==$NSID).DevicePath&quot;)
+    if [ -n &quot;$NSDEV&quot; ]; then
+        break
+    fi
+
+    sleep 1
+    nvme ns-rescan $NVME_DEV
+done
+
+# Partition/format/image the new namespace
+(...)
+
+# Detach the new namespace from the primary controller
+nvme detach-ns $NVME_DEV -c $HOST_CNTLID -n $NSID
+
+# Attach it to the secondary controller
+nvme attach-ns $NVME_DEV -c $VIRT_CNTLID -n $NSID
+</code></pre>
+<h2 id="sr-iovnvmevirtual-function">启用支持SR-IOV的NVMe设备的virtual function</h2>
+<pre class="lang-bash"><span class="ch">#!/bin/bash</span>
+
+<span class="c1"># find device</span>
+
+<span class="k">if</span> <span class="o">[</span> <span class="nv">$#</span> -ne <span class="m">2</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Usage: </span><span class="nv">$0</span><span class="s2"> &lt;nvme_device&gt; &lt;vf_number&gt;&quot;</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Example: </span><span class="nv">$0</span><span class="s2"> nvme2 4&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="nv">nvme_dev</span><span class="o">=</span><span class="nv">$1</span>
+<span class="nv">vf_num</span><span class="o">=</span><span class="nv">$2</span>
+<span class="nv">bdf</span><span class="o">=</span><span class="k">$(</span>basename <span class="k">$(</span>readlink /sys/class/nvme/<span class="nv">$nvme_dev</span>/device<span class="k">))</span>
+
+<span class="k">if</span> <span class="o">[</span> <span class="nv">$vf_num</span> -gt <span class="m">32</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;VF number should be less than 32&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="k">if</span> <span class="o">[</span> -z <span class="s2">&quot;</span><span class="nv">$bdf</span><span class="s2">&quot;</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Cannot find device </span><span class="nv">$nvme_dev</span><span class="s2">. Exit!&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="nb">echo</span> <span class="s2">&quot;NVMe dev  : </span><span class="nv">$nvme_dev</span><span class="s2">&quot;</span>
+<span class="nb">echo</span> <span class="s2">&quot;BDF       : </span><span class="nv">$bdf</span><span class="s2">&quot;</span>
+<span class="nb">echo</span> <span class="s2">&quot;VF number : </span><span class="nv">$vf_num</span><span class="s2">&quot;</span>
+
+<span class="c1"># enable VF</span>
+
+sudo nvme virt-mgmt /dev/<span class="nv">$nvme_dev</span> -c <span class="m">65</span> -r <span class="m">0</span> -a <span class="m">1</span> -n <span class="m">0</span>  <span class="c1"># Deallocate VQ</span>
+sudo nvme virt-mgmt /dev/<span class="nv">$nvme_dev</span> -c <span class="m">65</span> -r <span class="m">1</span> -a <span class="m">1</span> -n <span class="m">0</span>  <span class="c1"># Dealoocate VI</span>
+sudo nvme reset /dev/<span class="nv">$nvme_dev</span>
+
+<span class="k">for</span> <span class="o">((</span> <span class="nv">i</span><span class="o">=</span><span class="m">1</span><span class="p">;</span> i&lt;<span class="o">=</span><span class="nv">$vf_num</span><span class="p">;</span> i++ <span class="o">))</span>
+<span class="k">do</span>
+        sudo nvme virt-mgmt /dev/<span class="nv">$nvme_dev</span> -c <span class="nv">$i</span> -r <span class="m">0</span> -n <span class="m">4</span> -a <span class="m">8</span>  <span class="c1"># Allocate VQ</span>
+        sudo nvme virt-mgmt /dev/<span class="nv">$nvme_dev</span> -c <span class="nv">$i</span> -r <span class="m">1</span> -n <span class="m">4</span> -a <span class="m">8</span>  <span class="c1"># Aloocate VI</span>
+<span class="k">done</span>
+
+sudo bash -c <span class="s2">&quot;sudo echo 0 &gt; /sys/bus/pci/devices/</span><span class="nv">$bdf</span><span class="s2">/sriov_drivers_autoprobe&quot;</span> <span class="c1"># no autoprobe</span>
+sudo bash -c <span class="s2">&quot;sudo echo </span><span class="nv">$vf_num</span><span class="s2"> &gt; /sys/class/nvme/</span><span class="nv">$nvme_dev</span><span class="s2">/device/sriov_numvfs&quot;</span> <span class="c1"># enable VF</span>
+
+<span class="c1"># check</span>
+
+<span class="k">for</span> <span class="o">((</span> <span class="nv">i</span><span class="o">=</span><span class="m">1</span><span class="p">;</span> i&lt;<span class="o">=</span><span class="nv">$vf_num</span><span class="p">;</span> i++ <span class="o">))</span>
+<span class="k">do</span>
+        sudo nvme virt-mgmt /dev/<span class="nv">$nvme_dev</span> -c <span class="nv">$i</span> -a <span class="m">9</span>
+<span class="k">done</span>
+
+sudo nvme list-secondary /dev/<span class="nv">$nvme_dev</span> <span class="p">|</span> grep SC <span class="p">|</span> head -n <span class="k">$((</span><span class="nv">$vf_num</span><span class="o">*</span><span class="m">3</span><span class="k">))</span>
+</pre>
+<h2 id="nvme-vfvfio">为NVMe vf绑定vfio驱动</h2>
+<pre class="lang-bash"><span class="ch">#!/bin/bash</span>
+
+sudo modprobe vfio-pci
+
+<span class="c1"># find device</span>
+
+<span class="k">if</span> <span class="o">[</span> <span class="nv">$#</span> -ne <span class="m">3</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Usage: </span><span class="nv">$0</span><span class="s2"> &lt;nvme_device&gt; &lt;vf_number&gt; &lt;is_vfio&gt;&quot;</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Example: </span><span class="nv">$0</span><span class="s2"> nvme2 4 1&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="nv">nvme_dev</span><span class="o">=</span><span class="nv">$1</span>
+<span class="nv">vf_num</span><span class="o">=</span><span class="nv">$2</span>
+<span class="nv">is_vfio</span><span class="o">=</span><span class="nv">$3</span>
+<span class="nv">bdf</span><span class="o">=</span><span class="k">$(</span>basename <span class="k">$(</span>readlink /sys/class/nvme/<span class="nv">$nvme_dev</span>/device<span class="k">))</span>
+
+<span class="k">if</span> <span class="o">[</span> <span class="nv">$vf_num</span> -gt <span class="m">32</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;VF number should be less than 32&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="k">if</span> <span class="o">[</span> -z <span class="s2">&quot;</span><span class="nv">$bdf</span><span class="s2">&quot;</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Cannot find device </span><span class="nv">$nvme_dev</span><span class="s2">. Exit!&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="nb">echo</span> <span class="s2">&quot;NVMe dev  : </span><span class="nv">$nvme_dev</span><span class="s2">&quot;</span>
+<span class="nb">echo</span> <span class="s2">&quot;BDF       : </span><span class="nv">$bdf</span><span class="s2">&quot;</span>
+<span class="nb">echo</span> <span class="s2">&quot;VF number : </span><span class="nv">$vf_num</span><span class="s2">&quot;</span>
+<span class="nb">echo</span> <span class="s2">&quot;is_vfio   : </span><span class="nv">$is_vfio</span><span class="s2">&quot;</span>
+
+<span class="k">for</span> <span class="o">((</span> <span class="nv">i</span><span class="o">=</span><span class="m">1</span><span class="p">;</span> i&lt;<span class="o">=</span><span class="nv">$vf_num</span><span class="p">;</span> i++ <span class="o">))</span>
+<span class="k">do</span>
+    <span class="nv">vfbdf</span><span class="o">=</span><span class="k">$(</span>basename <span class="k">$(</span>readlink /sys/class/nvme/<span class="nv">$nvme_dev</span>/device/virtfn<span class="k">$((</span><span class="nv">$i</span><span class="o">-</span><span class="m">1</span><span class="k">))))</span>
+
+    <span class="k">if</span> <span class="o">[</span> <span class="nv">$is_vfio</span> -eq <span class="m">1</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+        <span class="nb">echo</span> <span class="s2">&quot;Binding </span><span class="nv">$vfbdf</span><span class="s2"> to vfio-pci&quot;</span>
+        bash -c <span class="s2">&quot;echo </span><span class="nv">$vfbdf</span><span class="s2"> &gt; /sys/bus/pci/drivers/nvme/unbind&quot;</span> <span class="p">&amp;</span>&gt; /dev/null
+        <span class="nb">echo</span> vfio-pci &gt; /sys/bus/pci/devices/<span class="nv">$vfbdf</span>/driver_override
+        <span class="nb">echo</span> <span class="nv">$vfbdf</span> &gt; /sys/bus/pci/drivers_probe
+    <span class="k">else</span>
+        <span class="nb">echo</span> <span class="s2">&quot;Binding </span><span class="nv">$vfbdf</span><span class="s2"> to nvme&quot;</span>
+        bash -c <span class="s2">&quot;echo </span><span class="nv">$vfbdf</span><span class="s2"> &gt; /sys/bus/pci/drivers/vfio-pci/unbind&quot;</span> <span class="p">&amp;</span>&gt; /dev/null
+        <span class="nb">echo</span> nvme &gt; /sys/bus/pci/devices/<span class="nv">$vfbdf</span>/driver_override
+        <span class="nb">echo</span> <span class="nv">$vfbdf</span> &gt; /sys/bus/pci/drivers_probe
+    <span class="k">fi</span>
+<span class="k">done</span>
+</pre>
+<h2 id="_2">参考</h2>
+<p><a href="https://github.com/linux-nvme/nvme-cli/issues/1126">https://github.com/linux-nvme/nvme-cli/issues/1126</a></p>
+  </content>
+</article>
+
+
+    <footer>
+      <div class="row">
+        <div class="col-md-1 d-none d-md-block img-me-container">
+          <img class="img-me img-fluid" src="/static/me.jpg">
+        </div>
+        <div class="col-md info">
+          <span class="name">iaGuoZhi</span><br>
+          <a href="/"><i class="fa fa-link" aria-hidden="true"></i> Home</a>
+          · <a href="/about"><i class="fa fa-link" aria-hidden="true"></i> About</a>
+          · <a href="@zhiguo:matrix.org" rel="noopener"><i class="fab fa-matrix" aria-hidden="true"></i> Matrix</a>
+          · <a href="https://github.com/iaguozhi" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
+          · <a href="https://twitter.com/iaguozhi" rel="noopener"><i class="fab fa-twitter" aria-hidden="true"></i> Twitter</a>
+          <br>
+          <span class="location"><i class="fas fa-map-marker"></i> ShangHai, China</span>
+        </div>
+        <div class="col-md">
+          <p class="disclaimer">
+            &copy; 2022 &mdash; 2022<br>
+            All text is available under the <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a> license<br>
+            All code is available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a> license
+          </p>
+      </div>
+
+    </footer>
+  </div>
+</body>
+</html>

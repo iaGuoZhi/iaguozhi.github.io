@@ -16,6 +16,9 @@
   <!-- Custom styles for this template -->
   <link href="./static/style.css" rel="stylesheet">
 
+  <!-- Syntax highlighting css -->
+  <link href="./static/pygments.css" rel="stylesheet">
+
 </head>
 <body>
   <div class="container">
@@ -37,7 +40,6 @@
 <pre><code>root@ubuntu:~# lspci -s 75:00.0
 75:00.0 Processing accelerators: Device 19e5:a250 (rev 21)
 </code></pre>
-
 <h2 id="3">3. 内核配置与编译</h2>
 <p>目前实现了sva特性的Linux 内核在: <a href="https://github.com/Linaro/linux-kernel-uadk/tree/uacce-devel-5.16">https://github.com/Linaro/linux-kernel-uadk/tree/uacce-devel-5.16</a></p>
 <p>下载之后进行如下配置： </p>
@@ -55,7 +57,6 @@ CONFIG_CRYPTO_DEV_HISI_ZIP=y
 CONFIG_UACCE=y
 
 </code></pre>
-
 <p>之后再编译内核。</p>
 <h2 id="4-uadk">4. uadk 用户态框架安装</h2>
 <p>从 <a href="https://github.com/Linaro/uadk/tree/master">https://github.com/Linaro/uadk/tree/master</a> 下载uadk。
@@ -64,23 +65,19 @@ uadk 编译安装命令:</p>
 ./conf.sh
 make
 </code></pre>
-
 <h2 id="5-uadk">5. 运行uadk测试程序</h2>
 <p>在uadk编译好之后, 在.libs目录下会出现用户态库:</p>
 <pre><code>.libs git:(master) ✗ ls *.so
 libhisi_hpre.so  libhisi_sec.so  libhisi_zip.so  libwd_comp.so  libwd_crypto.so  libwd.so
 </code></pre>
-
 <p>通过 <code>export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/path-to-libs</code>将生成的库加入动态库搜索路径中。</p>
 <p>在test目录下有一下测试程序：</p>
 <pre><code> ➜  uadk git:(master) ✗ ls test
 hisi_hpre_test  hisi_zip_testo hisi_sec_test
 </code></pre>
-
 <p>选择一个比如hisi_set_test进行测试，测试命令如下:</p>
 <pre><code>./test_hisi_sec --perf --async --pktlen 1024 --block 4096 --blknum 100000 --times 200 --multi 1 --ctxnum 1
 </code></pre>
-
 <p>参数可以调节，来控制产生io page fault的速度。</p>
 <h2 id="6-sva">6. 验证sva</h2>
 <p>可以在kernel里面<code>drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c</code>中的<code>arm_smmu_handle_evt</code>中添加打印，来确认io page fault是否被触发已经被处理。</p>
