@@ -11,7 +11,7 @@ date: 2022-07-09
 
 查看内核版本
 ```
-uname -a 
+uname -a
 ```
 
 ### neofetch
@@ -190,6 +190,13 @@ vim 在没有sudo打开文件的情况下强制保存没有权限编辑的文件
 
 ```
 w !sudo tee %
+```
+
+edit program output
+
+
+```
+strace pmap 2607617 |& vim -
 ```
 
 ### 在浏览器中查看文件
